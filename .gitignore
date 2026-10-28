@@ -1,14 +1,45 @@
-# Python
+# ===== Python =====
 venv/
+.venv/
 __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# macOS
+# ===== macOS =====
 .DS_Store
+._*
+.Spotlight-V100
+.Trashes
 
-# 临时试听文件
+# ===== 编辑器 =====
+.idea/
+.vscode/
+*.swp
+
+# ===== DAW / 音频 =====
+# 注意：*.mid 是交付物，要跟踪；下面是本地工程与试听文件，不进仓库
+*.logicx
+*.logicx.zip
+*.band
+*.alp
 *.wav
 *.aiff
+*.aif
 *.mp3
+*.m4a
+bounces/
+
+# ===== WorkBuddy 本地状态 =====
+# skills/ 是项目资产，要跟踪；memory/ 是本地工作日志，不进仓库
+.workbuddy/memory/
+.workbuddy/sessions/
+.workbuddy/*.db
+
+# ===== 杂项 =====
+*.bak
+*.tmp
+*.log
+.env
