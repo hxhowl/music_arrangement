@@ -32,19 +32,40 @@ description: 按项目 config.json 与风格库生成多轨 MIDI，自动带产�
 
 ## 加一套新风格
 
-`music/core/styles.py` 里加一条，键名就是 `config.json` 能写的 `style` 值：
+`music/core/styles.py` 里加一条，键名就是 `config.json` 能写的 `style` 值。
+最稳的做法是**复制一个现有条目再改**，不要从零写：
+
+```bash
+grep -A 20 '"pop": dict' music/core/styles.py   # 看一份完整样例
+```
+
+改完大致长这样（字段顺序不重要，缺字段会 KeyError）：
 
 ```python
 "pop_dark": dict(
-    chords=dict(octave=3, hold=0.8, velocity=56),      # octave/hold(占小节比例)/velocity
+    chords=dict(octave=3, hold=0.8, velocity=56),
     bass=dict(octave=1, low=33, high=44, velocity=86,
-              rhythm=[(0.0, 0.45, 1.0, 0), (2.0, 0.45, 0.9, 0)]),  # (起始拍, 时长拍, accent, 半音偏移)
-    drums={"light": ..., "medium": ..., "full": ...},   # (GM键名, 起始拍, 时长拍, 基准力度)
+              rhythm=[(0.0, 0.45, 1.0, 0), (2.0, 0.45, 0.9, 7)]),
+    drums={
+        "light":  [("kick", 0.0, 0.1, 70)],
+        "medium": [("kick", 0.0, 0.1, 88), ("snare", 2.0, 0.1, 74)],
+        "full":   [("kick", 0.0, 0.1, 105), ("snare", 1.0, 0.1, 90)],
+    },
     lead=dict(target=69, breath_every=4,
-              phrases=[[(0, 0.0, 0.8), (1, 1.0, 0.8)]]),  # (和弦内第几个音, 起始拍, 时长拍)
+              phrases=[[(0, 0.0, 0.8), (1, 1.0, 0.8)]]),
     pad=dict(octave=3, intervals=(12, 16, 19), velocity=34, hold=0.98),
 ),
 ```
+
+字段含义：
+
+| 字段 | 含义 |
+|---|---|
+| `chords.hold` | 和弦占小节的比例（0.35 断奏 / 0.99 连绵） |
+| `bass.rhythm` | `(起始拍, 时长拍, accent, 半音偏移)`，偏移 7=五度、12=八度 |
+| `drums[档]` | `(GM 键名, 起始拍, 时长拍, 基准力度)` |
+| `lead.phrases` | `(和弦内第几个音, 起始拍, 时长拍)`，一组短语按 `(i//2)` 轮换 |
+| `lead.breath_every` | 每 N 小节换成长音呼吸，0 = 不呼吸 |
 
 - 三个密度档（light/medium/full）都要有，否则跑该密度的段落会报错
   （`none` 不用定义：`ARRANGE` 里写 `drums=None` 时整段不出鼓）
@@ -63,5 +84,7 @@ description: 按项目 config.json 与风格库生成多轨 MIDI，自动带产�
 | `swing 尚未实现` | config 里不要写 `swing` |
 
 ## 边界
-不自动 bounce 音频；不做人声；长度随意（小样就用 `--duration 20` 或短 `sections`，
-正式出一整首）。
+- 不自动 bounce 音频；不做人声
+- 长度随意：小样用 `--duration 20` 或短 `sections`，正式出一整首
+- **生成是确定性的**：同参数跑两次输出字节完全相同，不能靠"再跑一遍"拿新版本。
+  想要几个版本挑一个，只能真的改点东西（换 style / 换调 / 改段落后半段动机）

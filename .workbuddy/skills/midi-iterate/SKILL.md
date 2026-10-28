@@ -1,6 +1,6 @@
 ---
 name: midi-iterate
-description: 根据 Logic 预览反馈，只改对应的那一层再重新生成，不手动改二进制
+description: 用户对已生成版本有意见时（鼓太弱、太吵、想更空、太快太慢、没记忆点），只改对应那一层再重新生成
 ---
 
 # midi-iterate
