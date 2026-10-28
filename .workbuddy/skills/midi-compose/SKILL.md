@@ -17,20 +17,29 @@ description: 按项目 config.json 与风格库生成多轨 MIDI，自动带产�
 
 ## 产物约定
 - 输出 `projects/<dir>/music/output/<project>-vN.mid`（Format 1，PPQ 960）
-- 同时写 `<project>-vN.config.json` 参数快照，保证这一版永久可复现
+- 同时写 `<project>-vN.config.json` 参数快照（含实际 seed），保证这一版永久可复现
 - 版本号缺省自增，不覆盖旧版；要指定就 `bash tools/compose.sh <dir> v5`
+- 多版本：`bash tools/compose.sh <dir> v5 --takes 3` → v5/v6/v7，
+  seed 从 config 的 `seed` 起递增（默认 0 → 1/2/3）
+- 换演奏：`bash tools/compose.sh <dir> --seed 9`
 
 ## 代码规则
 - **三层分工**：`music/core/arrange.py` 决定哪段出声 / 鼓多密（none/light/medium/full）/ 多响；
-  `music/core/styles.py` 决定这一档具体怎么打；`config.json` 决定 bpm / key / progression / style
+  `music/core/styles.py` 决定这一档具体怎么打；`config.json` 决定这首歌的一切参数
+- **项目内覆盖**：`config.json` 的 `style_tweaks` / `arrange` 会叠在出厂默认之上
+  （`styles.resolve` 与 `arrange.get` 负责合并），所以调歌不需要改全局文件
 - pattern 签名统一 `build(inst, ctx)`，`ctx` 是 `music/core/context.py` 的 `Ctx`；
   禁止 `if section == ...`，禁止写死音高或节奏常量
+- 风格参数一律从 `ctx.style_spec` 取，**不要在 pattern 里再 `resolve_style`**
 - 旋律按**和弦音级**取音（`music/patterns/lead.py` 的 `_chord_tones`），不要写死半音数
 - 和弦由 `theory.build_progression(key, 级数)` 推导，不要写绝对和弦名
 - MIDI：Format 1 / PPQ 960 / 鼓 `is_drum=True` 落 channel 10 /
   没有音符的轨不写进文件（避免 Logic 出现空白轨）
 
 ## 加一套新风格
+
+⚠️ 这是**扩产线**，不是调这首歌。只想调一首请用 `config.json` 的 `style_tweaks`。
+加条目不会改变已有项目的输出（老项目各自有快照），只是多一个可选 `style` 值。
 
 `music/core/styles.py` 里加一条，键名就是 `config.json` 能写的 `style` 值。
 最稳的做法是**复制一个现有条目再改**，不要从零写：
@@ -86,5 +95,6 @@ grep -A 20 '"pop": dict' music/core/styles.py   # 看一份完整样例
 ## 边界
 - 不自动 bounce 音频；不做人声
 - 长度随意：小样用 `--duration 20` 或短 `sections`，正式出一整首
-- **生成是确定性的**：同参数跑两次输出字节完全相同，不能靠"再跑一遍"拿新版本。
-  想要几个版本挑一个，只能真的改点东西（换 style / 换调 / 改段落后半段动机）
+- **seed=0 时完全确定**：同参数两次输出字节相同，便于复现和排查
+- **seed>0 是"同一编曲的不同演奏"**：只改力度扰动、鼓的装饰音、旋律短语起点，
+  不改和弦/段落/风格。要真正换一首请换 `style` 或 `progression`

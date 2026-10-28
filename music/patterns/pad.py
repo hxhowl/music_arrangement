@@ -1,11 +1,10 @@
 import pretty_midi
 
-from core.styles import get as get_style
 from core.theory import chord_root_pitch, scale_velocity
 
 
 def build(pad_inst, ctx):
-    spec = get_style(ctx.style)["pad"]
+    spec = ctx.style_spec["pad"]
     bar_len = ctx.bar_len
 
     for i in range(ctx.bars):

@@ -5,12 +5,16 @@
 为什么必须下沉到项目目录：全局 config 会让「每首歌独立目录」形同虚设 ——
 做第二首歌改一次 BPM，上一版的 .mid 就再也生成不出来了。
 和弦进行同理：它现在放在 config 里（key + progression 级数），不再是全局常量。
+
+同理，改风格或段落编排**也不许改全局文件**：用 config 的 style_tweaks / arrange
+做项目内覆盖（见 music/core/styles.resolve 与 music/core/arrange.get）。
 """
 
 import json
 import os
 
-from core.styles import STYLES
+from core.arrange import validate_overrides
+from core.styles import STYLES, resolve as resolve_style
 from core.theory import build_progression, default_progression, parse_key
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,6 +23,9 @@ DEFAULT_CONFIG = {
     "bpm": 84,
     "key": "F#m",                     # 调性：决定和弦的实际音高
     "style": "cinematic",             # 风格：决定律动与织体
+    "style_tweaks": {},               # 只对这首歌微调风格参数（不污染同风格其它项目）
+    "arrange": {},                    # 只对这首歌覆盖段落编排
+    "seed": 0,                        # 0 = 完全确定；>0 = 力度/装饰音的随机演奏
     "time_sig": (4, 4),
     "sections": {
         "intro": 4,
@@ -90,6 +97,14 @@ def _validate(cfg: dict) -> None:
         raise ValueError(
             f"未知风格 {cfg['style']!r}：可选 {', '.join(STYLES)}（定义在 music/core/styles.py）"
         )
+
+    # 提前把 style_tweaks / arrange 过一遍，别等生成到一半才炸
+    resolve_style(cfg["style"], cfg.get("style_tweaks"))
+    validate_overrides(cfg.get("arrange"))
+
+    seed = cfg.get("seed", 0)
+    if not isinstance(seed, int) or seed < 0:
+        raise ValueError(f"seed={seed!r} 必须是非负整数（0 = 完全确定，>0 = 随机演奏）")
 
     # 提前算一遍和弦，把 key / progression 的错法在生成前就暴露出来
     parse_key(cfg["key"])

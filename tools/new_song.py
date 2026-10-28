@@ -224,8 +224,11 @@ def main(argv=None):
     cfg = {
         "bpm": bpm,
         "key": key,
+        "seed": 0,
         "progression": degrees,
         "style": style,
+        "style_tweaks": {},      # 只对这一首微调风格，例：{"bass": {"velocity": 78}}
+        "arrange": {},           # 只对这一首覆盖段落，例：{"chorus": {"drums": "medium"}}
         "time_sig": [4, 4],
         "sections": {name: bars for name, bars in sections},
         "velocity_base": 80,

@@ -79,13 +79,28 @@ bash tools/check.sh projects/demo/music/output/demo-v5.mid projects/demo
 
 ## 一份编曲由三样东西决定
 
-| 层 | 在哪 | 决定什么 |
-|---|---|---|
-| **段落编排** | `music/core/arrange.py` 的 `ARRANGE` | 哪一段有哪些轨、鼓多密（none/light/medium/full）、力度缩放 |
-| **风格** | `music/core/styles.py` 的 `STYLES` | 同一档"medium"在 cinematic 是心跳鼓、在 pop 是标准 4/4 |
-| **调性与进行** | 项目 `config.json` 的 `key` + `progression` | 实际和弦，如 `Am` + `i-VI-III-VII` → Am-F-C-G |
+| 层 | 出厂默认在哪 | 这一首怎么改 | 决定什么 |
+|---|---|---|---|
+| **段落编排** | `music/core/arrange.py` 的 `ARRANGE` | `config.json` 的 `arrange` | 哪段有哪些轨、鼓多密（none/light/medium/full）、力度缩放 |
+| **风格** | `music/core/styles.py` 的 `STYLES` | `config.json` 的 `style` + `style_tweaks` | 同一档"medium"在 cinematic 是心跳鼓、在 pop 是标准 4/4 |
+| **调性与进行** | — | `config.json` 的 `key` + `progression` | 实际和弦，如 `Am` + `i-VI-III-VII` → Am-F-C-G |
 
 三者正交：换风格不影响段落结构，换调不影响律动。
+
+**改动只作用于当前这首歌**：前两层是出厂默认库，项目靠 `arrange` / `style_tweaks`
+覆盖，不需要（也不应该）改 `music/core/` 下的文件。
+
+## config.json 字段
+
+| 字段 | 作用 |
+|---|---|
+| `bpm` / `key` / `progression` | 速度、调性、和弦进行（级数） |
+| `style` | 四选一：cinematic / pop / lofi / playful |
+| `sections` | 段落顺序与长度 |
+| `style_tweaks` | **只对这一首**微调风格参数，如 `{"bass": {"velocity": 78}}` |
+| `arrange` | **只对这一首**覆盖段落编排，如 `{"chorus": {"drums": "medium"}}` |
+| `seed` | `0` = 完全确定；`>0` = 随机演奏（力度/装饰音/短语起点） |
+| `velocity_base` | 整体力度，80 为基准 |
 
 ## 四种风格
 
@@ -109,6 +124,13 @@ bash tools/check.sh projects/demo/music/output/demo-v5.mid projects/demo
 | bridge | ✓ | ✓ | light | — | ✓ | 0.80 |
 | outro | ✓ | — | — | — | ✓ | 0.65 |
 
+想只改这一首，就在 `config.json` 里写覆盖，不用动上面的表：
+
+```jsonc
+"arrange": { "chorus": { "drums": "medium", "vel": 1.05 } },
+"style_tweaks": { "bass": { "velocity": 78 }, "lead": { "breath_every": 8 } }
+```
+
 ## Logic Pro 导入
 
 拖 `.mid` 到 Tracks 区，5 轨自动分离（PPQ 960，BPM 读文件）：
@@ -120,21 +142,31 @@ lead → Alchemy Lead / ES2
 pad → Sculpture / Strings
 ```
 
-## 改曲子 = 改代码
+## 改曲子 = 改 config
 
-| 想改什么 | 改哪个文件 |
-|---------|-----------|
+| 想改什么 | 改哪里 |
+|---------|--------|
 | 速度 / 段落结构 / 调性 / 和弦进行 | `projects/<dir>/config.json` |
 | 换风格 | 同上，改 `style` |
-| 加一套新风格 | `music/core/styles.py` 加一条 `STYLES` 条目 |
-| 段落里哪轨出声、鼓多密 | `music/core/arrange.py` |
-| 加一个新段落类型 | 先加 `ARRANGE`，再用 `new_song.sh --sections` |
-| 某轨的演奏细节 | `music/patterns/*.py` |
+| 只调一两轨的轻重、鼓的疏密、旋律的呼吸 | 同上，`style_tweaks` / `arrange` |
+| 想多几版挑一个 | 同上，改 `seed`，或 `compose.sh --takes 3` |
+| 加一套新风格（全局能力） | `music/core/styles.py` |
+| 加一个新段落类型（全局能力） | `music/core/arrange.py` |
 
 改完重跑 `compose.sh`，版本号自动 +1，旧版原样保留。
 
-**注意**：`music/core/config.py` 里的是**默认值**，只有项目没有 `config.json` 时才生效。
-和弦进行与调性现在都在项目 config 里，不再需要改全局代码。
+**注意**：`music/core/` 下的是出厂默认，不是某一首歌的参数。项目里所有个性化都在
+`config.json`，所以改一首不会影响别的歌。
+
+## 多版本
+
+```bash
+bash tools/compose.sh projects/demo v5 --takes 3   # 出 v5/v6/v7，seed 1/2/3（config seed=0 时）
+bash tools/compose.sh projects/demo --seed 9       # 换一个 seed 再出一版
+```
+
+seed 只改"演奏细节"——力度扰动、鼓的装饰音、旋律从第几句开始，**不改和弦、段落、风格**。
+所以拿到的是同一首编曲的几种演奏，适合挑一版再进 Logic 精修。
 
 ## 新增一首歌
 ```
@@ -151,6 +183,9 @@ bash tools/compose.sh projects/<新建目录>
 报 `未知段落 'xxx'` → 该段落还没在 `music/core/arrange.py` 的 `ARRANGE` 里定义
 
 报 `未知风格 'xxx'` → 该风格还没在 `music/core/styles.py` 的 `STYLES` 里定义
+
+报 `config.arrange['x'] 里有未知字段` / `style_tweaks['x'] 里有未知字段`
+→ 字段名拼错了，报错信息里会列出可用字段
 
 报 `只实现 4/4` / `swing 尚未实现` → 这两项目前是硬约束，config 里不要写别的值
 

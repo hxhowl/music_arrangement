@@ -12,14 +12,18 @@ AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预�
 
 ## 硬规则
 
-1. **创作隔离 = 目录 + 参数双隔离**：每首歌独立 `projects/<date>-<style>-<seq>/`，
-   且必须有自己的 `config.json`。不要为某首歌改 `music/core/config.py` 的默认值，
-   也不要改 `music/core/styles.py` 里已有风格的参数 —— 那会让同风格的历史版本再也生成不出来。
+1. **改动只作用于当前这首歌**：每首歌独立 `projects/<date>-<style>-<seq>/`，
+   且必须有自己的 `config.json`。调歌用 config 里的 `bpm` / `key` / `progression` /
+   `style` / `sections` / `style_tweaks` / `arrange` / `seed`，
+   **不要改 `music/core/` 下的任何文件** —— 那是出厂默认库，改了会影响所有项目，
+   历史版本再也生成不出来。只有"扩产线"（加新风格、新段落类型、新和声手法）才动代码，
+   且必须说明影响面。
 2. **模型只写代码**：不手动改 MIDI 二进制；改曲子 = 改代码/配置后重新生成。
 3. **不覆盖历史**：`tools/compose.sh` 默认版本号自增，每版自动写 `<name>-vN.config.json` 快照。
    `decisions.md` 记录每次改动的听感预期。
 4. **三层职责不许混**：`music/core/arrange.py` 管"哪段出声、多密、多响"；
-   `music/core/styles.py` 管"这一档具体怎么演奏"；`config.json` 管"这首歌的 bpm/调性/和弦"。
+   `music/core/styles.py` 管"这一档具体怎么演奏"；`config.json` 管"这首歌"。
+   前两层是出厂默认，项目通过 `arrange` / `style_tweaks` 覆盖，不改源文件。
    pattern 里禁止 `if section == ...`，禁止写死音高与节奏常量。
 5. **和弦只有一个来源**：`music/core/theory.py` 的 `build_progression(key, 级数)`。
    调性写 `key`、进行写级数，不要写绝对和弦名。
@@ -47,6 +51,8 @@ AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预�
 bash tools/init_env.sh                                   # 初始化环境
 bash tools/new_song.sh "<描述>" --duration 90 --key Am    # 新建项目
 bash tools/compose.sh projects/<dir>                      # 生成（版本自增 + 体检）
+bash tools/compose.sh projects/<dir> v5 --takes 3         # 一次出 3 个演奏版本
+bash tools/compose.sh projects/<dir> --seed 9             # 换一个 seed 再出一版
 bash tools/check.sh projects/<dir>/music/output/<f>.mid   # 单独体检
 ```
 

@@ -1,6 +1,5 @@
 import pretty_midi
 
-from core.styles import get as get_style
 from core.theory import chord_root_pitch, scale_velocity
 
 LOW, HIGH = 60, 83
@@ -34,11 +33,14 @@ def _chord_tones(chord_name: str, semitones, start: int, count: int) -> list:
 
 
 def build(lead_inst, ctx):
-    spec = get_style(ctx.style)["lead"]
+    spec = ctx.style_spec["lead"]
     phrases = spec["phrases"]
     breath_every = spec.get("breath_every", 0)
     target = spec.get("target", 69)
     beat = ctx.beat
+
+    # seed 只换"从哪一句开始"，不改变句子本身，所以还是同一套风格的不同演奏
+    offset = (ctx.seed % len(phrases)) if ctx.seed else 0
 
     for i in range(ctx.bars):
         name = ctx.chord_at(i)
@@ -46,22 +48,22 @@ def build(lead_inst, ctx):
         if breath_every and i % breath_every == breath_every - 1:
             plan = BREATH
         else:
-            plan = phrases[(i // 2) % len(phrases)]
+            plan = phrases[(i // 2 + offset) % len(phrases)]
 
         tones = _chord_tones(
             name, ctx.chords[name], _anchor(name, ctx.chords[name], target), 4
         )
         start = ctx.bar_time(i)
 
-        for degree, offset, beats in plan:
+        for degree, offset_beats, beats in plan:
             pitch = tones[degree]
             while pitch > HIGH:
                 pitch -= 12
             lead_inst.notes.append(
                 pretty_midi.Note(
-                    velocity=scale_velocity(84, ctx.vel_scale),
+                    velocity=ctx.jitter(scale_velocity(84, ctx.vel_scale), 3),
                     pitch=pitch,
-                    start=start + offset * beat,
-                    end=start + (offset + beats) * beat,
+                    start=start + offset_beats * beat,
+                    end=start + (offset_beats + beats) * beat,
                 )
             )

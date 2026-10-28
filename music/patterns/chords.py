@@ -1,11 +1,10 @@
 import pretty_midi
 
-from core.styles import get as get_style
 from core.theory import chord_root_pitch, scale_velocity
 
 
 def build(chord_inst, ctx):
-    spec = get_style(ctx.style)["chords"]
+    spec = ctx.style_spec["chords"]
     bar_len = ctx.bar_len
 
     for i in range(ctx.bars):
@@ -17,7 +16,7 @@ def build(chord_inst, ctx):
         for semitone in ctx.chords[name]:
             chord_inst.notes.append(
                 pretty_midi.Note(
-                    velocity=scale_velocity(spec["velocity"], ctx.vel_scale),
+                    velocity=ctx.jitter(scale_velocity(spec["velocity"], ctx.vel_scale)),
                     pitch=root + semitone,
                     start=start,
                     end=end,

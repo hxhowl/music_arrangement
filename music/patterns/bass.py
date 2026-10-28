@@ -1,11 +1,10 @@
 import pretty_midi
 
-from core.styles import get as get_style
 from core.theory import chord_root_pitch, fold_into_range, scale_velocity
 
 
 def build(bass_inst, ctx):
-    spec = get_style(ctx.style)["bass"]
+    spec = ctx.style_spec["bass"]
     beat = ctx.beat
 
     for i in range(ctx.bars):
@@ -18,7 +17,7 @@ def build(bass_inst, ctx):
         for offset, beats, accent, semitone in spec["rhythm"]:
             bass_inst.notes.append(
                 pretty_midi.Note(
-                    velocity=scale_velocity(spec["velocity"], ctx.vel_scale, accent),
+                    velocity=ctx.jitter(scale_velocity(spec["velocity"], ctx.vel_scale, accent), 3),
                     pitch=root + semitone,
                     start=start + offset * beat,
                     end=start + (offset + beats) * beat,

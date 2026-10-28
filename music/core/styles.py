@@ -4,6 +4,9 @@
 所以同一份 ARRANGE（intro 没鼓 / verse 中等 / chorus 满）在不同风格下会得到
 完全不同的鼓组，这正是"同一句话换风格 = 另一首歌"的关键。
 
+这里的条目是**出厂默认**。项目要微调就用 config.json 的 style_tweaks 覆盖
+（见 resolve），不要直接改这里 —— 改这里会影响所有同风格项目。
+
 数据结构：
   chords : octave / hold(占小节比例) / velocity
   bass   : octave / low / high / velocity / rhythm=[(起始拍, 时长拍, accent, 半音偏移)]
@@ -12,6 +15,10 @@
            phrases=[[(音级, 起始拍, 时长拍)]]，音级是"和弦内第几个音"
   pad    : octave / intervals / velocity / hold
 """
+
+import copy
+
+from core.theory import GM_DRUM
 
 
 def _eighths(gm_key: str, base: int, length: float = 0.05):
@@ -114,6 +121,80 @@ def get(name: str) -> dict:
     if name not in STYLES:
         raise KeyError(f"未知风格 {name!r}：可选 {', '.join(STYLES)}")
     return STYLES[name]
+
+
+def resolve(name: str, tweaks: dict = None) -> dict:
+    """取一份风格，并叠加项目内的微调。
+
+    tweaks 形如 {"bass": {"velocity": 70}, "drums": {"full": [...]}}，
+    只覆盖给出的键。返回的是副本，**不会改动全局 STYLES** ——
+    所以同一风格的不同项目可以各自微调，互不影响。
+    """
+    spec = copy.deepcopy(get(name))
+    if not tweaks:
+        return spec
+
+    if not isinstance(tweaks, dict):
+        raise ValueError("config.style_tweaks 必须是对象")
+
+    unknown = set(tweaks) - set(spec)
+    if unknown:
+        raise ValueError(
+            f"config.style_tweaks 里有未知分组 {sorted(unknown)}，可用：{', '.join(spec)}"
+        )
+
+    for group, patch in tweaks.items():
+        if not isinstance(patch, dict):
+            raise ValueError(f"config.style_tweaks[{group!r}] 必须是对象")
+        unknown = set(patch) - set(spec[group])
+        if unknown:
+            raise ValueError(
+                f"config.style_tweaks[{group!r}] 里有未知字段 {sorted(unknown)}，"
+                f"可用：{', '.join(spec[group])}"
+            )
+        spec[group].update(patch)
+
+    _check_shapes(spec)
+    return spec
+
+
+def _check_shapes(spec: dict) -> None:
+    """检查常见手写错误：元组长度、音区宽度、鼓件名、旋律音级。
+
+    这些错如果不提前拦，会在生成到一半时报 KeyError / ValueError，
+    信息还不指向 config。
+    """
+    bass = spec["bass"]
+    if bass["high"] - bass["low"] < 11:
+        raise ValueError(
+            f"bass 音区 low={bass['low']} high={bass['high']} 太窄"
+            f"（至少跨 12 个半音，否则八度折叠会算出腔外的音）"
+        )
+    for item in bass["rhythm"]:
+        if len(item) != 4:
+            raise ValueError(f"bass.rhythm 每项应为 (起始拍, 时长拍, accent, 半音偏移)，收到 {item!r}")
+
+    for level, events in spec["drums"].items():
+        for item in events:
+            if len(item) != 4:
+                raise ValueError(
+                    f"drums[{level!r}] 每项应为 (GM 键名, 起始拍, 时长拍, 基准力度)，收到 {item!r}"
+                )
+            if item[0] not in GM_DRUM:
+                raise ValueError(
+                    f"drums[{level!r}] 里有未知鼓件 {item[0]!r}，可用：{', '.join(GM_DRUM)}"
+                )
+
+    for phrase in spec["lead"]["phrases"]:
+        for item in phrase:
+            if len(item) != 3:
+                raise ValueError(
+                    f"lead.phrases 每项应为 (音级, 起始拍, 时长拍)，收到 {item!r}"
+                )
+            if not 0 <= int(item[0]) <= 3:
+                raise ValueError(
+                    f"lead.phrases 的音级 {item[0]!r} 越界，只能是 0~3（和弦内第 1~4 个音）"
+                )
 
 
 def names():

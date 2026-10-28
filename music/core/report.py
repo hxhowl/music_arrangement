@@ -29,14 +29,14 @@ ROLE_RANGE = {
 }
 
 
-def _last_active_bar(sections) -> dict:
+def _last_active_bar(sections, overrides: dict = None) -> dict:
     """每个轨按编排应在第几小节结束 —— 用于区分「该收的留白」和「意外断掉」。"""
     from core.arrange import TRACK_KEYS, get
 
     out = {}
     offset = 0
     for section, count in sections.items():
-        arr = get(section)
+        arr = get(section, overrides)
         for key in TRACK_KEYS:
             if arr.get(key):
                 out[key] = offset + count
@@ -67,11 +67,13 @@ def check(mid_path: str, config: dict = None, progression=None) -> bool:
           f"时长 {end:.1f}s = {bars:.2f} 小节  轨数={len(pm.instruments)}")
     if config:
         chords = progression or []
+        seed = config.get("seed", 0)
         print(f"  风格={config.get('style', '-')}  调性={config.get('key', '-')}"
-              + (f"  和弦={' - '.join(chords)}" if chords else ""))
+              + (f"  和弦={' - '.join(chords)}" if chords else "")
+              + f"  seed={seed}")
 
     print(f"\n  轨        音符   音域        力度      至(小节)")
-    expected_last = _last_active_bar(config["sections"]) if config else {}
+    expected_last = _last_active_bar(config["sections"], config.get("arrange")) if config else {}
     for inst in pm.instruments:
         pitches = [n.pitch for n in inst.notes]
         if not pitches:
@@ -134,7 +136,7 @@ def check(mid_path: str, config: dict = None, progression=None) -> bool:
             offset += count
 
         from core.arrange import active_tracks
-        expected_tracks = active_tracks(config["sections"])
+        expected_tracks = active_tracks(config["sections"], config.get("arrange"))
         actual = {inst.name for inst in pm.instruments if inst.notes}
         missing = expected_tracks - actual
         if missing:

@@ -28,7 +28,7 @@ description: 当用户说“写一首歌/起个编曲/做个 60 秒配乐”时�
 
 3. **复核 `brief.md`**：风格、调性、和弦、段落、时长是否对得上用户的描述。
 
-4. **参数要改，直接改该项目的 `config.json`**（七个字段，手改最快）。
+4. **参数要改，直接改该项目的 `config.json`**（字段不多，手改最快）。
    ⚠️ 不要"改完重跑 new_song.sh"—— 它遇到同名目录会自动建 `-002`，你会得到两个项目。
 
 5. **不在此阶段生成 MIDI**（生成走 `midi-compose`）。
@@ -42,6 +42,9 @@ description: 当用户说“写一首歌/起个编曲/做个 60 秒配乐”时�
 | `progression` | **级数**（`i`/`VI`/`III`/`VII`），不要写绝对和弦名，否则换调就废了 |
 | `style` | 只能是 `music/core/styles.py` 里已定义的（cinematic / pop / lofi / playful） |
 | `sections` | 键名必须在 `music/core/arrange.py` 的 `ARRANGE` 里存在 |
+| `seed` | `0` = 完全确定（默认）；`>0` = 随机演奏 |
+| `style_tweaks` | 只对这一首微调风格参数，建项目时留空即可 |
+| `arrange` | 只对这一首覆盖段落编排，建项目时留空即可 |
 | `velocity_base` | 80 为基准，整体音量比例 |
 
 ## 输出
