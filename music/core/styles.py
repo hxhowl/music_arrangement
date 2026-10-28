@@ -86,7 +86,9 @@ STYLES = {
     # 无厘头：断奏和弦、错位重音、大跳旋律
     "playful": dict(
         chords=dict(octave=3, hold=0.35, velocity=66),
-        bass=dict(octave=1, low=33, high=44, velocity=92,
+        # 贝斯音区比其它风格低一个窗口：这套律动有 +12 的八度跳，
+        # 窗口太高会把贝斯顶到 G3，和 chords 轨撞在一起
+        bass=dict(octave=1, low=26, high=38, velocity=92,
                   rhythm=[(0.0, 0.35, 1.0, 0), (0.5, 0.35, 0.55, 12),
                           (2.0, 0.35, 1.0, 0), (2.75, 0.5, 0.7, 7)]),
         drums={

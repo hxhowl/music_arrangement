@@ -22,7 +22,7 @@ if _MUSIC_DIR not in sys.path:
 
 from core.arrange import ARRANGE, TRACK_KEYS  # noqa: E402
 from core.styles import STYLES  # noqa: E402
-from core.theory import DEFAULT_PROGRESSION, build_progression, parse_key  # noqa: E402
+from core.theory import build_progression, default_progression, parse_key  # noqa: E402
 
 # 描述关键词 -> (bpm, style)。顺序即优先级，先命中先用。
 RULES = (
@@ -31,6 +31,14 @@ RULES = (
     (("电影", "史诗", "悬疑", "悲伤", "离别", "安静", "温柔", "抒情", "慢"), 72, "cinematic"),
     (("欢快", "活泼", "热闹", "快", "节奏", "亲子", "短视频", "轻快"), 120, "pop"),
 )
+
+# 没给 --key 时的默认调：小调风格给小调，大调风格给大调
+STYLE_DEFAULT_KEY = {
+    "cinematic": "Dm",
+    "lofi": "Dm",
+    "pop": "C",
+    "playful": "G",
+}
 
 
 def infer(desc: str):
@@ -187,9 +195,10 @@ def main(argv=None):
         hits = infer(args.desc)
         style = args.style or (hits[0][1] if hits else "cinematic")
         bpm = args.bpm or (hits[0][0] if hits else 84)
-        key = args.key or "F#m"
+        # 调性不猜情绪，只跟风格走：小调风格给小调，大调风格给大调
+        key = args.key or STYLE_DEFAULT_KEY.get(style, "F#m")
         degrees = ([x.strip() for x in args.progression.split(",") if x.strip()]
-                   if args.progression else list(DEFAULT_PROGRESSION))
+                   if args.progression else default_progression(key))
 
         if style not in STYLES:
             raise ValueError(f"未知风格 {style!r}：可选 {', '.join(STYLES)}")
@@ -259,6 +268,9 @@ def main(argv=None):
             print(f"[提示] 描述里还命中 {alt}，当前按 {style} 生成；想换加 --style <名字>")
     else:
         print("[推断] 描述里没识别到风格关键词，使用默认 cinematic / 84bpm")
+
+    if not args.key:
+        print(f"[推断] 调性未指定，按风格给 {key}（调性不猜情绪，要别的加 --key）")
 
     print(f"\n项目已建立: {project_dir}")
     print(f"  风格 {style}  调性 {key}  和弦 {' - '.join(resolved)}")

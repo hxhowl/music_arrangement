@@ -11,14 +11,13 @@ import json
 import os
 
 from core.styles import STYLES
-from core.theory import DEFAULT_PROGRESSION, build_progression, parse_key
+from core.theory import build_progression, default_progression, parse_key
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 DEFAULT_CONFIG = {
     "bpm": 84,
     "key": "F#m",                     # 调性：决定和弦的实际音高
-    "progression": ["i", "VI", "III", "VII"],   # 级数进行，由 key 推导成和弦
     "style": "cinematic",             # 风格：决定律动与织体
     "time_sig": (4, 4),
     "sections": {
@@ -29,13 +28,14 @@ DEFAULT_CONFIG = {
     },
     "velocity_base": 80,              # 主控力度：80 = 基准值，整体按此比例缩放
 }
+# 注意：progression 不在默认值里 —— 它由 key 的调式决定
+# （小调 i-VI-III-VII / 大调 I-V-vi-IV），写死会在换调时算出怪和弦。
 
 
 def load_config(project_dir: str) -> dict:
     """读项目内 config.json，缺省回退默认值；读不到会明确告警。"""
     cfg = dict(DEFAULT_CONFIG)
     cfg["sections"] = dict(DEFAULT_CONFIG["sections"])
-    cfg["progression"] = list(DEFAULT_CONFIG["progression"])
 
     path = os.path.join(project_dir, "config.json")
     if os.path.exists(path):
@@ -53,6 +53,10 @@ def load_config(project_dir: str) -> dict:
     else:
         print(f"[warn] 未找到 {path}，本版使用默认参数；"
               f"换歌时会互相影响，建议为该项目建一份 config.json")
+
+    # 没写 progression 就按调式给默认进行（小调 i-VI-III-VII / 大调 I-V-vi-IV）
+    if not cfg.get("progression"):
+        cfg["progression"] = default_progression(cfg["key"])
 
     if isinstance(cfg["time_sig"], (list, tuple)):
         cfg["time_sig"] = tuple(cfg["time_sig"])
@@ -89,7 +93,7 @@ def _validate(cfg: dict) -> None:
 
     # 提前算一遍和弦，把 key / progression 的错法在生成前就暴露出来
     parse_key(cfg["key"])
-    build_progression(cfg["key"], cfg["progression"] or DEFAULT_PROGRESSION)
+    build_progression(cfg["key"], cfg["progression"])
 
     if cfg.get("swing", 0.0):
         raise NotImplementedError(

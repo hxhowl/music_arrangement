@@ -20,8 +20,12 @@ SCALES = {
 # 和弦性质由调式推导，不由字母大小写决定。
 DEGREES = {"I": 0, "II": 1, "III": 2, "IV": 3, "V": 4, "VI": 5, "VII": 6}
 
-# 默认进行：小调 i-VI-III-VII（F#m 下即 F#m-D-A-E）
-DEFAULT_PROGRESSION = ["i", "VI", "III", "VII"]
+# 默认进行按调式给：小调用 i-VI-III-VII（F#m 下即 F#m-D-A-E），
+# 大调用 I-V-vi-IV。用错调式的进行会算出 Bdim 这种怪和弦。
+DEFAULT_PROGRESSIONS = {
+    "minor": ["i", "VI", "III", "VII"],
+    "major": ["I", "V", "vi", "IV"],
+}
 
 # GM 鼓键位（channel 10，0-index 9）
 GM_DRUM = {
@@ -152,6 +156,12 @@ def build_progression(key: str, degrees):
         names.append(name)
         chord_map[name] = semitones
     return names, chord_map
+
+
+def default_progression(key: str):
+    """按调式给一条稳当的默认进行：小调 i-VI-III-VII，大调 I-V-vi-IV。"""
+    _, mode = parse_key(key)
+    return list(DEFAULT_PROGRESSIONS[mode])
 
 
 def chord_root_name(chord_name: str) -> str:
