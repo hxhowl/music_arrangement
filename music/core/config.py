@@ -87,11 +87,19 @@ def _validate(cfg: dict) -> None:
         if not isinstance(bars, int) or bars <= 0:
             raise ValueError(f"段落 {name!r} 的小节数必须是正整数，当前 {bars!r}")
 
-    if not 20 <= int(cfg["bpm"]) <= 300:
+    try:
+        bpm = float(cfg["bpm"])
+    except (TypeError, ValueError):
+        raise ValueError(f"bpm={cfg['bpm']!r} 不是数字")
+    if not 20 <= bpm <= 300:
         raise ValueError(f"bpm={cfg['bpm']} 不合理（应在 20~300）")
 
-    if not 1 <= int(cfg.get("velocity_base", 80)) <= 127:
-        raise ValueError(f"velocity_base={cfg.get('velocity_base')} 应在 1~127")
+    try:
+        velocity_base = int(cfg.get("velocity_base", 80))
+    except (TypeError, ValueError):
+        raise ValueError(f"velocity_base={cfg.get('velocity_base')!r} 不是整数")
+    if not 1 <= velocity_base <= 127:
+        raise ValueError(f"velocity_base={velocity_base} 应在 1~127")
 
     if cfg["style"] not in STYLES:
         raise ValueError(

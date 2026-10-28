@@ -18,7 +18,7 @@ def build(chord_inst, ctx):
                 pretty_midi.Note(
                     velocity=ctx.jitter(scale_velocity(spec["velocity"], ctx.vel_scale)),
                     pitch=root + semitone,
-                    start=start,
+                    start=ctx.sway(start),
                     end=end,
                 )
             )

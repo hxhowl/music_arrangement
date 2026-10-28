@@ -60,7 +60,11 @@ def get(section: str, overrides: dict = None) -> dict:
             f"段落 {section!r} 的 drums={arr['drums']!r} 不合法，"
             f"只能是 None / light / medium / full"
         )
-    if not 0 < float(arr["vel"]) <= 2:
+    try:
+        arr["vel"] = float(arr["vel"])
+    except (TypeError, ValueError):
+        raise ValueError(f"段落 {section!r} 的 vel={arr['vel']!r} 不是数字")
+    if not 0 < arr["vel"] <= 2:
         raise ValueError(f"段落 {section!r} 的 vel={arr['vel']} 应在 (0, 2] 之间")
     return arr
 

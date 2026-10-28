@@ -19,7 +19,7 @@ def build(bass_inst, ctx):
                 pretty_midi.Note(
                     velocity=ctx.jitter(scale_velocity(spec["velocity"], ctx.vel_scale, accent), 3),
                     pitch=root + semitone,
-                    start=start + offset * beat,
+                    start=ctx.sway(start + offset * beat),
                     end=start + (offset + beats) * beat,
                 )
             )

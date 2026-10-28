@@ -165,7 +165,7 @@ bash tools/compose.sh projects/demo v5 --takes 3   # 出 v5/v6/v7，seed 1/2/3�
 bash tools/compose.sh projects/demo --seed 9       # 换一个 seed 再出一版
 ```
 
-seed 只改"演奏细节"——力度扰动、鼓的装饰音、旋律从第几句开始，**不改和弦、段落、风格**。
+seed 只改"演奏细节"——力度扰动、±8ms 时值摆动、鼓的装饰音、旋律从第几句开始，**不改和弦、段落、风格**。
 所以拿到的是同一首编曲的几种演奏，适合挑一版再进 Logic 精修。
 
 ## 新增一首歌

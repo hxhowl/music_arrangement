@@ -78,7 +78,11 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
 
     # 风格 + 项目内微调；arrange + 项目内覆盖。都不碰全局文件
     style_spec = resolve_style(style, cfg.get("style_tweaks"))
-    arrange_overrides = cfg.get("arrange")
+    arrange_overrides = cfg.get("arrange") or {}
+
+    unused = set(arrange_overrides) - set(cfg["sections"])
+    if unused:
+        print(f"[warn] config.arrange 里的 {sorted(unused)} 不在 sections 里，本次不会生效")
 
     # 级数 -> 实际和弦
     progression, chord_map = build_progression(cfg["key"], cfg["progression"])
@@ -172,7 +176,7 @@ def main(argv=None):
     try:
         results = compose(args.project, args.version, report=not args.no_report,
                           seed=args.seed, takes=args.takes)
-    except (KeyError, ValueError, NotImplementedError, FileNotFoundError) as exc:
+    except (KeyError, ValueError, TypeError, NotImplementedError, FileNotFoundError) as exc:
         # 配置/编排错误不甩 traceback，直接给一句能照着改的话
         message = exc.args[0] if exc.args else str(exc)
         print(f"[配置错误] {message}", file=sys.stderr)

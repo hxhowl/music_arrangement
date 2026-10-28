@@ -49,7 +49,7 @@ def build(drum_inst, ctx):
             _add(
                 drum_inst,
                 _pitch(gm_key),
-                start + offset * beat,
+                ctx.sway(start + offset * beat, 0.004),   # 鼓摆小一点，太飘会显得不专业
                 beats * beat,
                 ctx.jitter(scale_velocity(velocity, ctx.vel_scale), 3),
             )

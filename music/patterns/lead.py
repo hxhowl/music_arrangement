@@ -63,7 +63,7 @@ def build(lead_inst, ctx):
                 pretty_midi.Note(
                     velocity=ctx.jitter(scale_velocity(84, ctx.vel_scale), 3),
                     pitch=pitch,
-                    start=start + offset_beats * beat,
+                    start=ctx.sway(start + offset_beats * beat),
                     end=start + (offset_beats + beats) * beat,
                 )
             )

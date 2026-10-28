@@ -45,6 +45,12 @@ class Ctx:
             return max(1, min(127, int(velocity)))
         return max(1, min(127, int(velocity) + self.rng.randint(-spread, spread)))
 
+    def sway(self, seconds: float, amount: float = 0.008) -> float:
+        """时值微摆动（默认 ±8ms）。量很小，只为让不同 take 听起来像不同次演奏。"""
+        if self.rng is None:
+            return seconds
+        return max(0.0, seconds + self.rng.uniform(-amount, amount))
+
     def chance(self, probability: float) -> bool:
         """按概率决定是否加装饰音。seed=0 时永远为 False。"""
         return self.rng is not None and self.rng.random() < probability
