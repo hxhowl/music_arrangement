@@ -25,7 +25,9 @@ OUT_DIR="$PROJECT_DIR/music/output"
 
 if [ "$VERSION" = "auto" ]; then
   mkdir -p "$OUT_DIR"
-  LAST="$(ls "$OUT_DIR"/*-v*.mid 2>/dev/null \
+  # 用 find 而不是 ls：ls 匹配不到文件会返回非 0，配合 set -o pipefail 会让
+  # 全新项目（output 里还没有 .mid）在第一次生成时静默失败。
+  LAST="$(find "$OUT_DIR" -maxdepth 1 -name '*-v*.mid' \
           | sed -nE 's/.*-v([0-9]+)\.mid$/\1/p' \
           | sort -n | tail -1)"
   VERSION="v$(( ${LAST:-0} + 1 ))"

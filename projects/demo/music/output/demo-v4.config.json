@@ -1,0 +1,16 @@
+{
+  "bpm": 84,
+  "key": "F#m",
+  "time_sig": [
+    4,
+    4
+  ],
+  "sections": {
+    "intro": 4,
+    "verse": 8,
+    "chorus": 8,
+    "outro": 4
+  },
+  "swing": 0.0,
+  "velocity_base": 80
+}

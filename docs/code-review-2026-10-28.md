@@ -4,10 +4,12 @@
 范围：`agents.md` / `README.md` / `USER.md` / `music/**` / `tools/**` / `.workbuddy/skills/**` / 产物 `demo-v1.mid`
 方式：静态审阅 + 实际运行验证（含 MIDI 产物二进制解析、参数变异测试）
 
-> **修复状态（2026-10-28 22:20 更新）**
-> 五个 P0 已全部修复并回归验证，见文末「附录二：P0 修复记录」。
+> **修复状态（2026-10-28 22:45 更新）**
+> 五个 P0 已修复；随后完成「编排矩阵 + 配置下沉 + 产物体检」三项工程改造，
+> 顺带修掉 P1 里的 outro 空白、pad 空轨、段落无动态、lead 不跟和弦、力度常量。
+> 见文末「附录二：P0 修复记录」与「附录三：第二轮改造记录」。
 > 基线（修复前）保存在 git commit `d2fb29f`，可用 `git show d2fb29f` 对照。
-> P1 / P2 仍未处理。
+> 仍未处理：和弦转位/voice leading、swing、arp 轨、brief→config 的自动化。
 
 
 ## 一句话结论
@@ -364,5 +366,104 @@ bar4 E   贝斯 E2  和弦 E3 G#3 B3
 
 换调测试（theory 改为 Am-F-C-G）：和弦跟随、贝斯跟随、无 KeyError。
 
-**仍未处理**：outro 4 小节空白、pad 空轨、arp 未实现、section 无动态、config 装饰性参数、力度常量、lead 不跟和弦、和弦全原位、brief→config 断链、decisions.md 缺失等（P1/P2）。
+**仍未处理**：和弦转位/voice leading、swing、arp 轨、brief→config 自动化。
+
+---
+
+## 附录三：第二轮改造记录（编排矩阵 / 配置下沉 / 产物体检）
+
+### 1. 编排矩阵 `music/core/arrange.py`（新）
+
+`ARRANGE` 表决定每段的轨开关、鼓密度、力度缩放，替代原来的 `if section in (...)` 白名单。
+
+```
+段落     chords bass drums lead pad  力度
+intro    ✓      —    —     —    ✓    0.70
+verse    ✓      ✓    half  —    ✓    0.85
+chorus   ✓      ✓    full  ✓    ✓    1.00
+bridge   ✓      ✓    hat   —    ✓    0.80
+outro    ✓      —    —     —    ✓    0.65
+```
+
+未定义段落直接报错，不再静默丢整段：
+
+```
+$ bash tools/compose.sh projects/<x>
+[配置错误] 未知段落 'drop'：请先在 music/core/arrange.py 的 ARRANGE 中定义
+           （已支持: intro, verse, chorus, bridge, outro）
+```
+
+同时修掉：**outro 4 小节空白**、**intro 第一拍就满编鼓**、**段落之间没有动态差**。
+
+### 2. 配置下沉 `projects/<dir>/config.json`（新）
+
+`load_config(project_dir)` 优先读项目内 JSON，缺省才回退 `DEFAULT_CONFIG` 并告警。
+每版生成后自动写 `<name>-vN.config.json` 快照，旧版本永久可复现。
+
+顺带让「装饰性参数」不再骗人：
+
+| 参数 | 处理 |
+|---|---|
+| `velocity_base` | 真的生效了：作为主控力度（80 为基准）乘进所有轨 |
+| `swing` | 未实现 → 写非 0 直接报错，而不是默默忽略 |
+| `time_sig` | 只支持 4/4 → 写 3/4 直接报错 |
+| `key` | 仍只作记录，每次生成都会打印「key 仅记录，和弦由 PROGRESSION 决定」 |
+
+隔离验证：新建一个 `bpm=128 / 5 段落` 的项目，生成正常，`demo` 的 v1/v2 字节未变。
+
+### 3. 产物体检 `music/core/report.py` + `tools/check.sh`（新）
+
+`compose.sh` 生成后自动跑；也可单独跑。检查项：
+
+- format 是否为 1、PPQ 是否为 960
+- 每轨音符数 / 音域 / 力度区间 / 结束小节
+- 空轨（应为空却被写进文件、或按编排该有音却没音）
+- 鼓轨是否落在 channel 10
+- 实际小节数 vs config 声明
+- **逐段检查是否有音符**、BPM 是否与 config 一致
+- 各轨音域是否明显超出角色定位（提示级）
+
+拿原始 v1 试跑，四条历史问题全被抓出来：
+
+```
+[失败] 体检未通过:
+  - PPQ=220，应为 960（与 Logic 默认对齐）
+  - 实际 19.92 小节 ≠ config 声明 24 小节
+  - 段落 'outro'（第 21~24 小节）没有任何音符
+  - 以下轨按编排应有音符但实际为空: ['pad']
+```
+
+### 4. 顺带修掉的 P1
+
+- **pad 空轨 → `patterns/pad.py`**：开放五度堆叠（8 度/12 度/2 个 8 度），不叠三音，避免中频糊。
+- **鼓零变化 → 三档密度**：`hat` / `half` / `full`；四小节一次桶鼓过门；段落起点吊镲；正拍重反拍轻。
+- **lead 不跟和弦 → 按和弦音级取音**：动机改成 `根-三-五-三` / `根-五-八-五`，
+  起手音取「离 A4 最近的和弦内音」。
+  实测 v4 的 28 个旋律音 **全部落在和弦上**。
+  （v3 是中间态：动机用固定半音 `+15` 在 A 大三和弦上得到 C5，与 C# 冲突，已被 v4 取代。）
+- **旋律只覆盖 2 个和弦**：原来 `i % 2` 跳过与 4 小节进行的奇偶周期相同，
+  D / E 整段没旋律；改成每 4 小节留一小节双长音呼吸，四个和弦都有旋律。
+- **力度全常量 → 段落缩放 + 正反拍 accent**。
+
+### 5. 改造过程中新发现并修掉的 bug（自己上一轮引入）
+
+`compose.sh` 里 `set -o pipefail` + `ls "$OUT_DIR"/*-v*.mid`：
+`ls` 匹配不到文件时返回非 0，pipefail 让整条管道失败，`set -e` 直接退出 ——
+**全新项目第一次生成会静默失败（退出码 1，无任何输出）**，README 的「新增一首歌」根本跑不通。
+改用 `find`（找不到也返回 0）。
+
+### 回归数据（demo-v4.mid）
+
+```
+format=1  PPQ=960  BPM=84  24.00 小节  5 轨
+
+段      小节      chords bass drums lead pad
+intro   1-4         12    0     0     0   12
+verse   5-12        24   32    80     0   24
+chorus  13-20       24   32   111    28   24
+outro   21-24       12    0     0     0   12
+```
+
+副歌 28 个旋律音 100% 落在当小节和弦音上；吊镲在 bar13 进，桶鼓过门在 bar16 / bar20。
+
 
