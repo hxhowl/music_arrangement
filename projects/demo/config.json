@@ -1,6 +1,8 @@
 {
   "bpm": 84,
   "key": "F#m",
+  "progression": ["i", "VI", "III", "VII"],
+  "style": "cinematic",
   "time_sig": [4, 4],
   "sections": {
     "intro": 4,
@@ -8,6 +10,5 @@
     "chorus": 8,
     "outro": 4
   },
-  "swing": 0.0,
   "velocity_base": 80
 }

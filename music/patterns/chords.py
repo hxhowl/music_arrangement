@@ -1,24 +1,25 @@
 import pretty_midi
 
-# 和弦数据统一来自 core.theory —— 不要在 pattern 层重复定义。
-# 否则改 theory.py 时和弦不跟随，贝斯/旋律会与和弦错位（见 code review P0-1）。
-from core.theory import CHORDS, PROGRESSION, chord_root_pitch, scale_velocity
+from core.styles import get as get_style
+from core.theory import chord_root_pitch, scale_velocity
 
 
-def build(chord_inst, bpm, start_bar, num_bars, base_octave=3, vel_scale=1.0):
-    beat = 60.0 / bpm
-    bar_len = 4 * beat
-    for i in range(num_bars):
-        chord_name = PROGRESSION[i % len(PROGRESSION)]
-        intervals = CHORDS[chord_name]
-        root_midi = chord_root_pitch(chord_name, base_octave)
-        t0 = start_bar * bar_len + i * bar_len
-        for semi in intervals:
+def build(chord_inst, ctx):
+    spec = get_style(ctx.style)["chords"]
+    bar_len = ctx.bar_len
+
+    for i in range(ctx.bars):
+        name = ctx.chord_at(i)
+        root = chord_root_pitch(name, spec["octave"])
+        start = ctx.bar_time(i)
+        end = start + bar_len * spec["hold"]
+
+        for semitone in ctx.chords[name]:
             chord_inst.notes.append(
                 pretty_midi.Note(
-                    velocity=scale_velocity(55, vel_scale),
-                    pitch=root_midi + semi,
-                    start=t0,
-                    end=t0 + bar_len * 0.9,
+                    velocity=scale_velocity(spec["velocity"], ctx.vel_scale),
+                    pitch=root + semitone,
+                    start=start,
+                    end=end,
                 )
             )

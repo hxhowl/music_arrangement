@@ -34,11 +34,21 @@
 - 配置下沉到 `projects/demo/config.json`，每版写参数快照。
 - **预期听感**：有了真正的段落推进；副歌进入有吊镲和过门；旋律落在和弦上，E 和弦不再空。
 
+## v5 — 2026-10-28 23:10（和弦改为级数推导 + 风格库）
+
+- 和弦进行从"全局绝对和弦名"改成 **`key` + 级数**：`F#m` + `i-VI-III-VII` → `F#m - D - A - E`。
+  和弦仍在 `config.json` 里（`key` / `progression`），换歌不再污染其它项目。
+- 新增 `music/core/styles.py` 风格库（cinematic / pop / lofi / playful），
+  同一份段落编排在不同风格下得到完全不同的律动。
+- pattern 改为数据驱动：`build(inst, ctx)`，不再有写死的 `PROGRESSION` / `MOTIF` / `base_roots`。
+- 和弦名按调号拼写（D 小调的 VI 级是 `Bb`，不是 `A#`）。
+- 本曲切到 `cinematic`：和弦长音铺满、贝斯全音符、鼓只做心跳、旋律两音大跳。
+- **预期听感**：比 v4 更空、更慢、更"配乐"；动态落差比 v4 小，因为鼓是心跳而不是满编。
+
 ## 未做 / 已知局限
 
-- `key` 目前只作记录，和弦由 `theory.PROGRESSION` 决定
 - `swing` 未实现（写非 0 会直接报错）
 - 只支持 4/4
 - 和弦全部原位三和弦，没有转位与 voice leading
 - `arp` 轨未实现
-- demo 没有 brief.md
+- 风格是"整首一套"，暂不支持"前奏 cinematic、副歌 playful"这种段内混搭

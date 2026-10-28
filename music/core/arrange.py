@@ -2,19 +2,23 @@
 
 每个 section 决定：哪些轨出声、鼓打到什么密度、整体力度缩放多少。
 
+注意分工：**这里只决定"哪一段出声、多稀多密"（light/medium/full），
+"这个密度具体怎么打"由 styles.py 决定**。所以同一份 ARRANGE 在
+cinematic 下是心跳、在 pop 下是标准 4/4、在 playful 下是错位重音。
+
 旧实现用 `if section in ("intro","verse","chorus")` 白名单，在 config 里加
 `"bridge"` 会**静默丢弃整段**。现在改成查表，查不到直接报错（fail loud）。
 """
 
 TRACK_KEYS = ("chords", "bass", "drums", "lead", "pad")
 
-# drums 取值见 patterns/drums.py：None=不出鼓 / "hat" / "half" / "full"
+# drums: None=不出鼓 / "light" / "medium" / "full"
 ARRANGE = {
-    "intro":  dict(chords=True, bass=False, drums=None,   lead=False, pad=True,  vel=0.70),
-    "verse":  dict(chords=True, bass=True,  drums="half", lead=False, pad=True,  vel=0.85),
-    "chorus": dict(chords=True, bass=True,  drums="full", lead=True,  pad=True,  vel=1.00),
-    "bridge": dict(chords=True, bass=True,  drums="hat",  lead=False, pad=True,  vel=0.80),
-    "outro":  dict(chords=True, bass=False, drums=None,   lead=False, pad=True,  vel=0.65),
+    "intro":  dict(chords=True, bass=False, drums=None,     lead=False, pad=True,  vel=0.70),
+    "verse":  dict(chords=True, bass=True,  drums="medium", lead=False, pad=True,  vel=0.85),
+    "chorus": dict(chords=True, bass=True,  drums="full",   lead=True,  pad=True,  vel=1.00),
+    "bridge": dict(chords=True, bass=True,  drums="light",  lead=False, pad=True,  vel=0.80),
+    "outro":  dict(chords=True, bass=False, drums=None,     lead=False, pad=True,  vel=0.65),
 }
 
 

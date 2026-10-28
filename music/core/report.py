@@ -22,7 +22,7 @@ EXPECTED_PPQ = 960
 # 各轨建议音域（MIDI 音高）。超出只提示，不判失败 —— 有时是刻意的。
 ROLE_RANGE = {
     "chords": (40, 72),
-    "bass":   (28, 50),
+    "bass":   (26, 52),
     "pad":    (50, 88),
     "lead":   (56, 92),
     "drums":  (35, 60),
@@ -44,7 +44,7 @@ def _last_active_bar(sections) -> dict:
     return out
 
 
-def check(mid_path: str, config: dict = None) -> bool:
+def check(mid_path: str, config: dict = None, progression=None) -> bool:
     """检查一份 MIDI 产物，返回是否通过（问题会打印出来）。"""
     issues = []
     hints = []
@@ -65,6 +65,10 @@ def check(mid_path: str, config: dict = None) -> bool:
     print(f"\n产物: {os.path.basename(mid_path)}")
     print(f"  format={m.type}  PPQ={m.ticks_per_beat}  BPM={bpm:.1f}  "
           f"时长 {end:.1f}s = {bars:.2f} 小节  轨数={len(pm.instruments)}")
+    if config:
+        chords = progression or []
+        print(f"  风格={config.get('style', '-')}  调性={config.get('key', '-')}"
+              + (f"  和弦={' - '.join(chords)}" if chords else ""))
 
     print(f"\n  轨        音符   音域        力度      至(小节)")
     expected_last = _last_active_bar(config["sections"]) if config else {}
@@ -113,7 +117,9 @@ def check(mid_path: str, config: dict = None) -> bool:
             issues.append(f"文件 BPM={bpm:.1f} 与 config bpm={cfg_bpm:g} 不符")
 
         expected = sum(int(v) for v in config["sections"].values())
-        if abs(bars - expected) > 0.05:
+        # 容差 0.6 小节：断奏风格（如 playful/lofi）的末音不会撑满整小节，
+        # 用严格相等会把这些风格全判成"小节数不符"
+        if abs(bars - expected) > 0.6:
             issues.append(f"实际 {bars:.2f} 小节 ≠ config 声明 {expected} 小节")
 
         # 逐段检查是否真有音 —— 旧的 if 白名单把 outro 整段丢掉了，这条能直接抓到
@@ -154,11 +160,14 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     config = None
+    resolved = None
     if args.project:
         from core.config import load_config
+        from core.theory import build_progression
         config = load_config(args.project)
+        resolved, _ = build_progression(config["key"], config["progression"])
 
-    return 0 if check(args.mid, config) else 1
+    return 0 if check(args.mid, config, resolved) else 1
 
 
 if __name__ == "__main__":

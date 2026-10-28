@@ -4,16 +4,22 @@
 
 为什么必须下沉到项目目录：全局 config 会让「每首歌独立目录」形同虚设 ——
 做第二首歌改一次 BPM，上一版的 .mid 就再也生成不出来了。
+和弦进行同理：它现在放在 config 里（key + progression 级数），不再是全局常量。
 """
 
 import json
 import os
 
+from core.styles import STYLES
+from core.theory import DEFAULT_PROGRESSION, build_progression, parse_key
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 DEFAULT_CONFIG = {
     "bpm": 84,
-    "key": "F#m",              # 仅记录用途（report / brief 展示）；和弦由 theory.PROGRESSION 决定
+    "key": "F#m",                     # 调性：决定和弦的实际音高
+    "progression": ["i", "VI", "III", "VII"],   # 级数进行，由 key 推导成和弦
+    "style": "cinematic",             # 风格：决定律动与织体
     "time_sig": (4, 4),
     "sections": {
         "intro": 4,
@@ -21,8 +27,7 @@ DEFAULT_CONFIG = {
         "chorus": 8,
         "outro": 4,
     },
-    "swing": 0.0,              # 尚未实现，必须为 0（见 _validate）
-    "velocity_base": 80,       # 主控力度：80 = 基准值，整体按此比例缩放
+    "velocity_base": 80,              # 主控力度：80 = 基准值，整体按此比例缩放
 }
 
 
@@ -30,6 +35,7 @@ def load_config(project_dir: str) -> dict:
     """读项目内 config.json，缺省回退默认值；读不到会明确告警。"""
     cfg = dict(DEFAULT_CONFIG)
     cfg["sections"] = dict(DEFAULT_CONFIG["sections"])
+    cfg["progression"] = list(DEFAULT_CONFIG["progression"])
 
     path = os.path.join(project_dir, "config.json")
     if os.path.exists(path):
@@ -40,6 +46,9 @@ def load_config(project_dir: str) -> dict:
         # sections 整体覆盖而不是合并，避免残留上一首歌的段落
         if "sections" in override:
             cfg["sections"] = dict(override.pop("sections"))
+        # progression 同理，整条替换
+        if "progression" in override:
+            cfg["progression"] = list(override.pop("progression"))
         cfg.update(override)
     else:
         print(f"[warn] 未找到 {path}，本版使用默认参数；"
@@ -55,15 +64,9 @@ def load_config(project_dir: str) -> dict:
 def _validate(cfg: dict) -> None:
     num, den = cfg["time_sig"]
     if (num, den) != (4, 4):
-        # patterns 里 bar_len 是硬编码的 4 拍，写 3/4 而不改 patterns 会得到错位结果
+        # patterns 里按 4 拍一小节推进，写 3/4 而不改 patterns 会得到错位结果
         raise NotImplementedError(
             f"patterns 目前只实现 4/4，config 里是 {num}/{den}；请先改 patterns 或改回 4/4"
-        )
-
-    if float(cfg.get("swing", 0.0)) != 0.0:
-        raise NotImplementedError(
-            "swing 尚未实现（patterns 没有应用 groove 偏移），请保持 0.0，"
-            "不要在 config 里写一个不生效的数值"
         )
 
     if not cfg["sections"]:
@@ -78,3 +81,17 @@ def _validate(cfg: dict) -> None:
 
     if not 1 <= int(cfg.get("velocity_base", 80)) <= 127:
         raise ValueError(f"velocity_base={cfg.get('velocity_base')} 应在 1~127")
+
+    if cfg["style"] not in STYLES:
+        raise ValueError(
+            f"未知风格 {cfg['style']!r}：可选 {', '.join(STYLES)}（定义在 music/core/styles.py）"
+        )
+
+    # 提前算一遍和弦，把 key / progression 的错法在生成前就暴露出来
+    parse_key(cfg["key"])
+    build_progression(cfg["key"], cfg["progression"] or DEFAULT_PROGRESSION)
+
+    if cfg.get("swing", 0.0):
+        raise NotImplementedError(
+            "swing 尚未实现（patterns 没有应用 groove 偏移），请去掉这个字段"
+        )

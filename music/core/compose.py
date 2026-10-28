@@ -12,8 +12,9 @@ if _MUSIC_DIR not in sys.path:
 
 from core.arrange import TRACK_KEYS, get as get_arrange
 from core.config import load_config
+from core.context import Ctx
 from core.report import check
-from core.theory import PROGRESSION
+from core.theory import build_progression
 from patterns.bass import build as build_bass
 from patterns.chords import build as build_chords
 from patterns.drums import build as build_drums
@@ -36,13 +37,17 @@ assert set(TRACKS) == set(TRACK_KEYS), "compose.TRACKS 与 arrange.TRACK_KEYS �
 
 
 def compose(project_dir: str, version: str = "v1", report: bool = True):
-    """按项目 config + 编排矩阵生成 MIDI，并写一份参数快照。
+    """按项目 config + 编排矩阵 + 风格库生成 MIDI，并写一份参数快照。
 
     返回 (产物路径, 体检是否通过)。
     """
     cfg = load_config(project_dir)
     bpm = cfg["bpm"]
     num, den = cfg["time_sig"]
+    style = cfg["style"]
+
+    # 级数 -> 实际和弦。换歌只改 config，不再动全局
+    progression, chord_map = build_progression(cfg["key"], cfg["progression"])
 
     pm = pretty_midi.PrettyMIDI(initial_tempo=bpm, resolution=RESOLUTION)
     pm.time_signature_changes.append(pretty_midi.TimeSignature(num, den, 0))
@@ -55,24 +60,29 @@ def compose(project_dir: str, version: str = "v1", report: bool = True):
     bar = 0
     for section, bars in cfg["sections"].items():
         arr = get_arrange(section)
-        vs = arr["vel"] * master
+        ctx = Ctx(
+            bpm=bpm,
+            start_bar=bar,
+            bars=bars,
+            progression=progression,
+            chords=chord_map,
+            vel_scale=arr["vel"] * master,
+            style=style,
+            density=arr["drums"],
+            crash=(section == "chorus"),   # 副歌进吊镲
+            fill=(section != "outro"),     # 收尾段不再加过门
+        )
 
         if arr["chords"]:
-            build_chords(insts["chords"], bpm, bar, bars, vel_scale=vs)
+            build_chords(insts["chords"], ctx)
         if arr["bass"]:
-            build_bass(insts["bass"], bpm, bar, bars, vel_scale=vs)
+            build_bass(insts["bass"], ctx)
         if arr["drums"]:
-            build_drums(
-                insts["drums"], bpm, bar, bars,
-                density=arr["drums"],
-                vel_scale=vs,
-                crash=(section == "chorus"),   # 副歌进吊镲
-                fill=(section != "outro"),     # 收尾段不再加过门
-            )
+            build_drums(insts["drums"], ctx)
         if arr["lead"]:
-            build_lead(insts["lead"], bpm, bar, bars, vel_scale=vs)
+            build_lead(insts["lead"], ctx)
         if arr["pad"]:
-            build_pad(insts["pad"], bpm, bar, bars, vel_scale=vs)
+            build_pad(insts["pad"], ctx)
 
         bar += bars
 
@@ -92,11 +102,11 @@ def compose(project_dir: str, version: str = "v1", report: bool = True):
 
     print(f"生成完成: {out_file}")
     print(f"参数快照: {snapshot}")
-    print(f"[info] 和弦进行 {'-'.join(PROGRESSION)}（config 的 key={cfg['key']} 仅作记录，不参与生成）")
+    print(f"[info] 风格={style}  调性={cfg['key']}  和弦={' - '.join(progression)}")
 
     ok = True
     if report:
-        ok = check(out_file, cfg)
+        ok = check(out_file, cfg, progression=progression)
     return out_file, ok
 
 
