@@ -4,6 +4,12 @@
 范围：`agents.md` / `README.md` / `USER.md` / `music/**` / `tools/**` / `.workbuddy/skills/**` / 产物 `demo-v1.mid`
 方式：静态审阅 + 实际运行验证（含 MIDI 产物二进制解析、参数变异测试）
 
+> **修复状态（2026-10-28 22:20 更新）**
+> 五个 P0 已全部修复并回归验证，见文末「附录二：P0 修复记录」。
+> 基线（修复前）保存在 git commit `d2fb29f`，可用 `git show d2fb29f` 对照。
+> P1 / P2 仍未处理。
+
+
 ## 一句话结论
 
 **骨架是对的，实现是"能跑出声音"的 demo 级，还没到"工程化"。**
@@ -331,3 +337,32 @@ format: 1   tracks: 6   ticks_per_beat: 220
 
 `--version v2` 传入后仍输出 `demo-v1.mid`（P0-2 已复现）。
 修改 theory.PROGRESSION 后 chords 不变、bass KeyError（P0-1 已复现）。
+
+---
+
+## 附录二：P0 修复记录
+
+| 编号 | 改动文件 | 做法 | 验证 |
+|---|---|---|---|
+| P0-1 | `music/patterns/chords.py` | 删除本地重复的 `CHORDS/PROGRESSION/NOTE_OFFSET`，改为 `from core.theory import ...` | `C.PROGRESSION is T.PROGRESSION` → True |
+| P0-2 | `tools/compose.sh` | 转发版本号；支持 `v3` / `--version v3`；缺省扫描已有产物取 max+1 | 首跑输出 `demo-v2.mid`，`demo-v1.mid` 保留 |
+| P0-4 | `music/patterns/bass.py` | 去掉 `base_roots` 硬编码，改 `_bass_root()` 由和弦名推导并折进 A1~G#2；启用 `root_octave` | 贝斯 F#2/D2/A1/E2，与和弦根音一一对齐，音域 33~42 |
+| P1-9 | `music/core/compose.py` | `PrettyMIDI(..., resolution=960)` | PPQ 由 220 → 960 |
+| P0-5 | `agents.md` | 删掉不存在的 `tools/synthesize.sh`，改为「拖进 Logic 试听」+ 版本用法 | 文档内命令全部可执行 |
+
+回归后的 `demo-v2.mid`：
+
+```
+format=1 tracks=6 PPQ=960
+chords 60 音  D3~E4      bass 80 音  A1~F#2
+lead   16 音  A4~A5      drums 240 音 C2~F#2
+bar1 F#m 贝斯 F#2 和弦 F#3 A3 C#4
+bar2 D   贝斯 D2  和弦 D3 F#3 A3
+bar3 A   贝斯 A1  和弦 A3 C#4 E4
+bar4 E   贝斯 E2  和弦 E3 G#3 B3
+```
+
+换调测试（theory 改为 Am-F-C-G）：和弦跟随、贝斯跟随、无 KeyError。
+
+**仍未处理**：outro 4 小节空白、pad 空轨、arp 未实现、section 无动态、config 装饰性参数、力度常量、lead 不跟和弦、和弦全原位、brief→config 断链、decisions.md 缺失等（P1/P2）。
+

@@ -18,7 +18,9 @@ from patterns.lead import build as build_lead
 def compose(project_dir: str, version: str = "v1"):
     cfg = DEFAULT_CONFIG
     bpm = cfg["bpm"]
-    pm = pretty_midi.PrettyMIDI(initial_tempo=bpm)
+    # resolution=960：与 Logic Pro 默认 PPQ 对齐，避免 16 分/三连音导入时被量化
+    # （pretty_midi 默认 220，非整数倍，见 code review P1-9）
+    pm = pretty_midi.PrettyMIDI(initial_tempo=bpm, resolution=960)
 
     insts = {
         "chords": pretty_midi.Instrument(program=0, name="chords"),

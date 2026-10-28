@@ -23,8 +23,9 @@ AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预�
 
 ## 常用命令
 - 初始化环境: bash tools/init_env.sh
-- 生成 MIDI: bash tools/compose.sh projects/<dir>
-- 试听合成（可选）: bash tools/synthesize.sh music/output/<file>.mid
+- 生成 MIDI: bash tools/compose.sh projects/<dir>          # 版本号自动递增，不覆盖旧版
+- 指定版本: bash tools/compose.sh projects/<dir> v3
+- 试听: 直接把 projects/<dir>/music/output/<file>.mid 拖进 Logic Pro（不做离线合成）
 
 ## 输出约定
 每次动作后输出：
