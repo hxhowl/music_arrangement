@@ -46,7 +46,10 @@ AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预�
    用 heredoc 往文档追加内容后尤其要跑（那是最容易整块重复的地方）。
 9. **音效不做成 MIDI 轨**：riser / impact / whoosh 是采样，MIDI 只能触发合成器音色。
    要交货就给 `<name>-vN.cues.md` 的时间点 + 让用户在 Logic 建 `SFX` 音频轨。
-10. **上下文最小化**：新窗口只加载 agents.md + 当前项目 brief.md/config.json，不继承历史聊天。
+10. **知识文档写给使用人**：音乐创作层面的解释（为什么这样分轨、听到问题该动哪层）
+   放 `docs/music_knowledge/`，用中文、讲人话、参数名对得上代码；
+   执行流程仍然只写在 skill 里，两边不要混。
+11. **上下文最小化**：新窗口只加载 agents.md + 当前项目 brief.md/config.json，不继承历史聊天。
 
 ## 技能索引
 
@@ -58,6 +61,7 @@ AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预�
 | 出 MIDI、换风格再出一版、生成失败排查 | `.workbuddy/skills/midi-compose/SKILL.md` |
 | 听完要改、"鼓太弱""想更空""换个调" | `.workbuddy/skills/midi-iterate/SKILL.md` |
 | 导入 Logic、选音色、试听与验收 | `.workbuddy/skills/logic-import/SKILL.md` |
+| 问"为什么这么分轨""听感不对该动哪层" | `docs/music_knowledge/`（讲给用户听的，不是执行规范） |
 
 > skill 若没被自动加载（实测可能出现 `Can not find skill`），直接 Read 上表文件照做即可。
 

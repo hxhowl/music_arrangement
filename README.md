@@ -20,7 +20,9 @@ music_arrangement/
 ├── agents.md                  # WorkBuddy 全局规则
 ├── USER.md                    # 稳定的协作偏好（不含音乐定位 —— 定位由每次输入决定）
 ├── README.md
-├── docs/                      # code review / 可行性审核
+├── docs/
+│   ├── music_knowledge/       # 音乐创作知识（给使用人看：分轨策略、听感定位）
+│   └── *.md                   # code review / 可行性审核（冻结的历史记录）
 ├── music/                     # 代码包
 │   ├── core/
 │   │   ├── compose.py         # 主入口：编排调度 + 写出 + 触发体检
@@ -85,6 +87,13 @@ bash tools/check.sh projects/demo/music/output/demo-v5.mid projects/demo
 - `<name>-vN.config.json` — 参数快照，保证这一版永久可复现
 - `<name>-vN.cues.md` — **音效时间点**（第几小节放 riser / impact），交给你在 Logic 里摆
 
+## 先读一下知识库
+
+如果要调整音乐本身（而不是命令行参数），先看 `docs/music_knowledge/`：
+
+- [分轨策略](docs/music_knowledge/01-分轨策略.md) —— 为什么按功能分 8 层，想加乐器轨之前必读
+- [听感问题定位](docs/music_knowledge/02-听感问题定位.md) —— "糊 / 吵 / 空 / 平"分别是哪一层的问题
+
 ## 一份编曲由三样东西决定
 
 | 层 | 出厂默认在哪 | 这一首怎么改 | 决定什么 |
@@ -140,12 +149,13 @@ pip install -r requirements.txt pytest
 pytest
 ```
 
-84 项，0.6 秒跑完。覆盖：乐理推导、配置校验、风格/编排合并（含全局不被污染）、
+85 项，0.6 秒跑完。覆盖：乐理推导、配置校验、风格/编排合并（含全局不被污染）、
 生成确定性与多 take、段落换风格只影响该段、旋律无同音冲突、
 **半小节换和弦 / 两小节一个和弦 / swing 只推后半拍 / 副旋律不与主旋律重叠 / 音效清单**。
 
 另有 `tests/test_docs.py` 专门查文档本身（`decisions.md` 的版本标题唯一且递增、
-文档里没有整块重复、反引号里的仓库路径真实存在、skill 的 `name` 与目录名一致）。
+文档里没有整块重复、反引号里的仓库路径真实存在、相对链接不失效、
+skill 的 `name` 与目录名一致）。
 这类错误不影响运行，但会让后来的人（和 AI）照着错的做——所以也纳进 pytest。
 
 ## 四种风格

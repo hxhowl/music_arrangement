@@ -12,6 +12,7 @@ import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# 需要长期维护的文档：重复、路径、链接都要查
 DOC_GLOBS = (
     "README.md",
     "agents.md",
@@ -19,16 +20,23 @@ DOC_GLOBS = (
     ".workbuddy/skills/*/SKILL.md",
     "projects/*/decisions.md",
     "projects/*/brief.md",
+    "docs/music_knowledge/*.md",
 )
+
+# 冻结的历史记录（code review / 审核报告）：只查整块重复。
+# 不查路径 —— 它们会**故意引用当时不存在的路径**（如 tools/synthesize.sh），
+# 那是记录的一部分，改成"正确"反而失真。
+ARCHIVE_GLOBS = ("docs/*.md",)
 
 # 窗口大小：8 行足够长，短表头/空行的自然重复不会被误判
 WINDOW = 8
 MIN_WINDOW_CHARS = 80
 
 
-def _docs():
+def _docs(include_archive=True):
+    patterns = DOC_GLOBS + (ARCHIVE_GLOBS if include_archive else ())
     paths = []
-    for pattern in DOC_GLOBS:
+    for pattern in patterns:
         paths.extend(sorted(glob.glob(os.path.join(ROOT, pattern))))
     return paths
 
@@ -49,7 +57,7 @@ class TestNoDuplicateBlocks:
         heredoc 追加被执行两次时，产出的正是这种重复；光看 git diff 容易漏。
         """
         offenders = []
-        for path in _docs():
+        for path in _docs(include_archive=True):
             lines = _lines(path)
             seen = {}
             for start in range(len(lines) - WINDOW + 1):
@@ -161,7 +169,7 @@ class TestReferencedPaths:
 
     def test_paths_exist(self):
         missing = []
-        for path in _docs():
+        for path in _docs(include_archive=False):
             for token in self._tokens(path):
                 if not any(os.path.exists(c) for c in self._candidates(path, token)):
                     missing.append(f"{_rel(path)} → {token}")
@@ -184,3 +192,30 @@ class TestReadmeSync:
 
         for key in TRACK_KEYS:
             assert f"`{key}`" in readme, f"README 的轨表没提 {key}"
+
+
+class TestMarkdownLinks:
+    """相对链接必须指向真实文件。
+
+    知识库靠索引页串起来，链接一断，使用者就找不到东西；
+    这种错在编辑器里点一下才能发现，所以交给测试。
+    """
+
+    LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+    SKIP_PREFIX = ("http://", "https://", "mailto:", "#")
+
+    def test_relative_links_resolve(self):
+        broken = []
+        for path in _docs(include_archive=True):
+            base = os.path.dirname(path)
+            text = open(path, encoding="utf-8").read()
+            for target in self.LINK.findall(text):
+                target = target.strip()
+                if target.startswith(self.SKIP_PREFIX):
+                    continue
+                target = target.split("#", 1)[0]
+                if not target:
+                    continue
+                if not os.path.exists(os.path.join(base, target)):
+                    broken.append(f"{_rel(path)} → {target}")
+        assert not broken, "文档里的相对链接失效：\n  " + "\n  ".join(broken)
