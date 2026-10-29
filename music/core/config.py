@@ -14,6 +14,7 @@ import json
 import os
 
 from core.arrange import validate_overrides
+from core.instruments import plan as plan_instruments
 from core.styles import STYLES, resolve as resolve_style
 from core.theory import build_progression, default_progression, parse_key
 
@@ -26,6 +27,8 @@ DEFAULT_CONFIG = {
     "style_tweaks": {},               # 只对这首歌微调风格参数（不污染同风格其它项目）
     "arrange": {},                    # 只对这首歌覆盖段落编排
     "seed": 0,                        # 0 = 完全确定；>0 = 力度/装饰音的随机演奏
+    "preset": None,                   # 编制预设：band / cinematic / lofi / acoustic / electronic
+    "instruments": {},                # 按槽换乐器，如 {"chords": "nylon", "lead": "flute"}
     "swing": 0.0,                     # 8 分音符摇摆：0=直拍，0.33≈三连音感，0.66≈shuffle
     "harmonic_rhythm": None,          # 每个和弦占几拍；None = 用该段风格自己的默认值
     "cues": [],                       # 手动补充的音效时间点
@@ -109,8 +112,9 @@ def _validate(cfg: dict) -> None:
             f"未知风格 {cfg['style']!r}：可选 {', '.join(STYLES)}（定义在 music/core/styles.py）"
         )
 
-    # 提前把 style_tweaks / arrange 过一遍，别等生成到一半才炸
+    # 提前把 style_tweaks / 乐器选择 / arrange 过一遍，别等生成到一半才炸
     resolve_style(cfg["style"], cfg.get("style_tweaks"))
+    plan_instruments(cfg)
     validate_overrides(cfg.get("arrange"))
 
     seed = cfg.get("seed", 0)

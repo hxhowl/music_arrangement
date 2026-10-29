@@ -25,7 +25,9 @@ bash tools/check.sh projects/<dir>/music/output/<file>.mid projects/<dir>
 
 ## 音色
 
-轨道自带 GM program 兜底（Logic 会按它分配软件乐器），**都要换掉**：
+轨道自带的 GM program 来自 `config.json` 的 `preset` / `instruments`
+（`bash tools/instruments.sh --project <dir>` 可以看这首歌实际用了什么）。
+Logic 打开 MIDI 时会按它分配软件乐器；**最终都要按你的音源库调**：
 
 | 轨 | GM 兜底 | 建议 |
 |---|---|---|

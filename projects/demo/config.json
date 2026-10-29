@@ -13,5 +13,6 @@
     "chorus": 8,
     "outro": 4
   },
-  "velocity_base": 80
+  "velocity_base": 80,
+  "preset": "cinematic"
 }

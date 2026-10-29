@@ -32,6 +32,9 @@ ARCHIVE_GLOBS = ("docs/*.md",)
 WINDOW = 8
 MIN_WINDOW_CHARS = 80
 
+# 纯符号行（`}` / `---` / 代码围栏）：连着的两个 `}` 在 JSON 示例里很正常，不算重复
+PUNCTUATION_ONLY = re.compile(r"^[^\w]+$")
+
 
 def _docs(include_archive=True):
     patterns = DOC_GLOBS + (ARCHIVE_GLOBS if include_archive else ())
@@ -81,6 +84,33 @@ class TestNoDuplicateBlocks:
         assert "agents.md" in rels
         assert any("SKILL.md" in r for r in rels)
         assert any("decisions.md" in r for r in rels)
+
+
+class TestNoDuplicateLines:
+    """相邻两行完全相同 —— 8 行窗口抓不到的短重复。
+
+    起因：往 SKILL.md 的表格里追加两行（preset / instruments），命令被执行两次，
+    于是同样的两行出现两遍。表格行重复不会报错、也不会被 8 行窗口命中，
+    但在文档里就是一条假信息（读者以为有两个同名字段）。
+    """
+
+    def test_no_consecutive_duplicate_lines(self):
+        # 代码块也一起查：这次的重复就出现在 ```bash 注释里和表格里两处。
+        # 但纯符号行例外 —— JSON 示例里连着的两个 `}` 是合法的。
+        offenders = []
+        for path in _docs():
+            prev = None
+            for number, line in enumerate(_lines(path), 1):
+                text = line.strip()
+                if not text or PUNCTUATION_ONLY.match(text):
+                    prev = None
+                    continue
+                if text == prev:
+                    offenders.append(
+                        f"{_rel(path)} 第 {number} 行与上一行完全相同：{text[:40]}"
+                    )
+                prev = text
+        assert not offenders, "文档出现相邻重复行：\n  " + "\n  ".join(offenders)
 
 
 class TestDecisionsLog:

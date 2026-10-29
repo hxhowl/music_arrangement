@@ -19,7 +19,7 @@ AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预�
 1. **改动只作用于当前这首歌**：每首歌独立 `projects/<date>-<style>-<seq>/`，
    且必须有自己的 `config.json`。调歌用 config 里的 `bpm` / `key` / `progression` /
    `style` / `sections` / `style_tweaks` / `arrange` / `seed` /
-   `harmonic_rhythm` / `swing` / `cues`，
+   `harmonic_rhythm` / `swing` / `cues` / `preset` / `instruments`，
    **不要改 `music/core/` 下的任何文件** —— 那是出厂默认库，改了会影响所有项目，
    历史版本再也生成不出来。只有"扩产线"（加新风格、新段落类型、新和声手法）才动代码，
    且必须说明影响面。

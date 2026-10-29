@@ -16,6 +16,8 @@ from core.arrange import TRACK_KEYS, get as get_arrange
 from core.config import load_config
 from core.context import Ctx
 from core.cues import write_cues
+from core.instruments import describe as describe_instruments
+from core.instruments import merge_tweaks, plan as plan_instruments, tweaks_of
 from core.report import check
 from core.styles import resolve as resolve_style
 from core.theory import build_progression
@@ -31,16 +33,17 @@ from patterns.perc import build as build_perc
 # 与 Logic Pro 默认 PPQ 对齐，避免 16 分/三连音导入时被重新量化
 RESOLUTION = 960
 
-# 轨定义：program 只是 GM 音色兜底，真实音色在 Logic 里换
+# 轨属性：名字 + 是否鼓。**program 不在这里** —— 它由乐器选择决定
+# （core/instruments.py 的 plan()），这样"换乐器"只有一处来源。
 TRACKS = {
-    "chords":  dict(program=0,  name="chords"),
-    "bass":    dict(program=33, name="bass"),
-    "drums":   dict(program=0,  name="drums", is_drum=True),
-    "perc":    dict(program=0,  name="perc", is_drum=True),
-    "arp":     dict(program=81, name="arp"),
-    "lead":    dict(program=80, name="lead"),
-    "counter": dict(program=42, name="counter"),
-    "pad":     dict(program=90, name="pad"),
+    "chords":  dict(name="chords"),
+    "bass":    dict(name="bass"),
+    "drums":   dict(name="drums", is_drum=True),
+    "perc":    dict(name="perc", is_drum=True),
+    "arp":     dict(name="arp"),
+    "lead":    dict(name="lead"),
+    "counter": dict(name="counter"),
+    "pad":     dict(name="pad"),
 }
 
 assert set(TRACKS) == set(TRACK_KEYS), "compose.TRACKS 与 arrange.TRACK_KEYS 不一致"
@@ -108,7 +111,13 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
     pm = pretty_midi.PrettyMIDI(initial_tempo=bpm, resolution=RESOLUTION)
     pm.time_signature_changes.append(pretty_midi.TimeSignature(num, den, 0))
 
-    insts = {key: pretty_midi.Instrument(**kw) for key, kw in TRACKS.items()}
+    # 每个功能槽用什么乐器：DEFAULT < preset < config.instruments
+    plan_map = plan_instruments(cfg)
+
+    insts = {
+        key: pretty_midi.Instrument(program=plan_map[key]["program"], **kw)
+        for key, kw in TRACKS.items()
+    }
 
     # 主控力度：velocity_base 80 为基准，整体等比缩放
     master = cfg.get("velocity_base", 80) / 80.0
@@ -117,7 +126,8 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
     harmonic_rhythm = cfg.get("harmonic_rhythm")
 
     # 段落可以各自指定 style；同一个 style 只解析一次
-    tweaks = cfg.get("style_tweaks")
+    # 演奏法微调：乐器自带的最低，config.style_tweaks 优先
+    tweaks = merge_tweaks(cfg.get("style_tweaks"), tweaks_of(plan_map))
     spec_cache = {style: resolve_style(style, tweaks)}
     used_sections = {}
 
@@ -203,6 +213,7 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
     print(f"生成完成: {out_file}")
     print(f"参数快照: {snapshot}")
     print(f"音效清单: {cue_file}")
+    print(f"[info] 编制: {describe_instruments(plan_map)}")
     rhythm_note = f"和声节奏={harmonic_rhythm:g}拍/和弦" if harmonic_rhythm \
         else "和声节奏=按风格"
     print(f"[info] 风格={style}  调性={cfg['key']}  和弦={' - '.join(progression)}"

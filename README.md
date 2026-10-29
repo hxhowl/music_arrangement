@@ -21,7 +21,7 @@ music_arrangement/
 ├── USER.md                    # 稳定的协作偏好（不含音乐定位 —— 定位由每次输入决定）
 ├── README.md
 ├── docs/
-│   ├── music_knowledge/       # 音乐创作知识（给使用人看：分轨策略、听感定位）
+│   ├── music_knowledge/       # 音乐创作知识（分轨策略 / 听感定位 / 乐器选择）
 │   └── *.md                   # code review / 可行性审核（冻结的历史记录）
 ├── music/                     # 代码包
 │   ├── core/
@@ -53,6 +53,7 @@ music_arrangement/
 │   ├── init_env.sh
 │   ├── new_song.sh            # 从一句话建项目
 │   ├── compose.sh
+│   ├── instruments.sh         # 列出可选乐器与编制预设
 │   └── check.sh
 └── .workbuddy/
     └── skills/                # song-brief / midi-compose / midi-iterate / logic-import
@@ -79,6 +80,7 @@ bash tools/new_song.sh "90秒 欢快片头 结尾反差" --duration 90 --key C
 bash tools/compose.sh projects/20261028-playful-001        # 版本号自动递增
 bash tools/compose.sh projects/demo v5                      # 指定版本号
 bash tools/check.sh projects/demo/music/output/demo-v5.mid projects/demo
+bash tools/instruments.sh                                 # 看每个槽可选哪些乐器
 ```
 
 生成后会自动体检，输出每轨音符数/音域/力度/结束位置、风格与和弦、段落是否空白。
@@ -93,6 +95,7 @@ bash tools/check.sh projects/demo/music/output/demo-v5.mid projects/demo
 
 - [分轨策略](docs/music_knowledge/01-分轨策略.md) —— 为什么按功能分 8 层，想加乐器轨之前必读
 - [听感问题定位](docs/music_knowledge/02-听感问题定位.md) —— "糊 / 吵 / 空 / 平"分别是哪一层的问题
+- [乐器选择](docs/music_knowledge/03-乐器选择.md) —— 每个功能槽用什么乐器，有哪些坑
 
 ## 一份编曲由三样东西决定
 
@@ -119,6 +122,8 @@ bash tools/check.sh projects/demo/music/output/demo-v5.mid projects/demo
 | `seed` | `0` = 完全确定；`>0` = 随机演奏（力度/时值/装饰音/短语起点） |
 | `harmonic_rhythm` | **每个和弦占几拍**：`4`=一小节一个，`2`=半小节一个，`8`=两小节一个。不写则用风格默认值 |
 | `swing` | 8 分音符摇摆 `0~0.8`：0=直拍，0.33≈三连音感，0.66≈shuffle |
+| `preset` | 编制预设：`band` / `cinematic` / `lofi` / `acoustic` / `electronic` |
+| `instruments` | 按槽换乐器，如 `{"chords": "nylon", "lead": "flute"}` |
 | `cues` | 手动补充的音效时间点，如 `[{"bar": 21, "beat": 3, "what": "whoosh"}]` |
 | `velocity_base` | 整体力度，80 为基准 |
 
@@ -149,9 +154,10 @@ pip install -r requirements.txt pytest
 pytest
 ```
 
-85 项，0.6 秒跑完。覆盖：乐理推导、配置校验、风格/编排合并（含全局不被污染）、
+111 项，约 1 秒跑完。覆盖：乐理推导、配置校验、风格/编排合并（含全局不被污染）、
 生成确定性与多 take、段落换风格只影响该段、旋律无同音冲突、
-**半小节换和弦 / 两小节一个和弦 / swing 只推后半拍 / 副旋律不与主旋律重叠 / 音效清单**。
+**半小节换和弦 / 两小节一个和弦 / swing 只推后半拍 / 副旋律不与主旋律重叠 / 音效清单 /
+乐器预设与覆盖优先级 / 换乐器时弹法跟着变 / 鼓组不被 perc 覆盖 / 文档不出现重复行**。
 
 另有 `tests/test_docs.py` 专门查文档本身（`decisions.md` 的版本标题唯一且递增、
 文档里没有整块重复、反引号里的仓库路径真实存在、相对链接不失效、

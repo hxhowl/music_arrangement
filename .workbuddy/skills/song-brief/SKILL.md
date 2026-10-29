@@ -19,6 +19,7 @@ description: 当用户说“写一首歌/起个编曲/做个 60 秒配乐”时�
    ```bash
    bash tools/new_song.sh "<用户的原话描述>" --duration 60 --key Am --style cinematic
    # 可选：--swing 0.33（摇一点）  --harmonic-rhythm 2（半小节换和弦）
+   #       --preset lofi（编制）  --instruments "lead=flute"（换单个槽）
    ```
    - `--style` / `--bpm` 不给就按关键词推断，脚本会打印推断依据（可覆盖）
    - `--key` **不会按情绪推断**，只跟风格走：cinematic/lofi → Dm，pop → C，playful → G
@@ -49,6 +50,8 @@ description: 当用户说“写一首歌/起个编曲/做个 60 秒配乐”时�
 | `harmonic_rhythm` | 每和弦几拍。不写 = 跟风格（cinematic 8 / pop 4 / lofi 2 / playful 4） |
 | `swing` | 0 = 直拍（默认）；0.33≈三连音感 |
 | `cues` | 手动补的音效时间点，建项目时留空 |
+| `preset` | 编制预设（band / cinematic / lofi / acoustic / electronic），不给就按风格自动选 |
+| `instruments` | 按槽换乐器，如 `{"chords": "nylon"}`；可选值见 `bash tools/instruments.sh` |
 | `style_tweaks` | 只对这一首微调风格参数，建项目时留空即可 |
 | `arrange` | 只对这一首覆盖段落编排，建项目时留空即可 |
 | `velocity_base` | 80 为基准，整体音量比例 |

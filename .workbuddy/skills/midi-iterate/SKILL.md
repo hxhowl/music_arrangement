@@ -35,6 +35,8 @@ description: 用户对已生成版本有意见时（鼓太弱、太吵、想更�
 | 副旋律太吵 / 太高 | `style_tweaks.counter.velocity` / `.range` | |
 | 想在某处加 riser / whoosh | `cues` | `[{"bar": 21, "beat": 3, "what": "whoosh"}]` |
 | 整体气质不对（太摇滚 / 想更空） | `style` | 整套换掉（影响全曲） |
+| 音色不对（不像钢琴 / 想要弦乐） | `instruments.<槽>` | 只看该槽；见 `bash tools/instruments.sh` |
+| 整套编制都想换 | `preset` | band / cinematic / lofi / acoustic / electronic |
 | 只有某一段想要另一种感觉 | `arrange.<段>.style` | 例如副歌 pop、结尾 playful |
 | 某一轨太吵 / 太弱 | `style_tweaks.<轨>.velocity` | chords / bass / pad / lead |
 | 鼓太密 / 太稀 | `arrange.<段>.drums` | `None` / `light` / `medium` / `full` |

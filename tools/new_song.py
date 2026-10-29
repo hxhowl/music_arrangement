@@ -21,6 +21,9 @@ if _MUSIC_DIR not in sys.path:
     sys.path.insert(0, _MUSIC_DIR)
 
 from core.arrange import ARRANGE, TRACK_KEYS  # noqa: E402
+from core.instruments import (
+    PRESETS, STYLE_PRESET, get as get_instrument, plan as plan_instruments,
+)  # noqa: E402
 from core.styles import STYLES  # noqa: E402
 from core.theory import build_progression, default_progression, parse_key  # noqa: E402
 
@@ -167,6 +170,19 @@ def build_brief(title, desc, cfg, sections, resolved, project_name):
 
     lines += [
         "",
+        "## 编制（每个功能槽用什么乐器）",
+        "",
+        "换法：改 `config.json` 的 `instruments`，或用 `bash tools/instruments.sh` 看可选。",
+        "带 ⚠️ 的说明表示「只换音色不够像，还需要新的演奏法」。",
+        "",
+        "| 功能槽 | 乐器 | 说明 |",
+        "|---|---|---|",
+    ]
+    for slot, entry in plan_instruments(cfg).items():
+        lines.append(f"| `{slot}` | {entry['name']} | {entry['why']} |")
+
+    lines += [
+        "",
         "## 下一步",
         "",
         "```bash",
@@ -186,6 +202,23 @@ def build_brief(title, desc, cfg, sections, resolved, project_name):
     return "\n".join(lines)
 
 
+def parse_instruments(text):
+    """'chords=nylon,lead=flute' -> {'chords': 'nylon', 'lead': 'flute'}，写错当场报。"""
+    if not text:
+        return {}
+    out = {}
+    for piece in text.split(","):
+        piece = piece.strip()
+        if not piece:
+            continue
+        if "=" not in piece:
+            raise ValueError(f"--instruments 片段 {piece!r} 要写成 槽=乐器，如 chords=nylon")
+        slot, key = (x.strip() for x in piece.split("=", 1))
+        get_instrument(slot, key)      # 校验，错误信息里会列出可选值
+        out[slot] = key
+    return out
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="从一句话建一个新的编曲项目")
     parser.add_argument("desc", nargs="?", default="", help="一句话描述，如 \"60秒 悬疑感 缓慢推进\"")
@@ -202,6 +235,10 @@ def main(argv=None):
                         help="8 分音符摇摆 0~0.8（0=直拍，0.33≈三连音感，0.66≈shuffle）")
     parser.add_argument("--harmonic-rhythm", type=float, default=None,
                         help="每个和弦占几拍（4=一小节一个，2=半小节一个，8=两小节一个）")
+    parser.add_argument("--preset", default=None,
+                        help=f"编制预设：{', '.join(PRESETS)}（不给就按风格自动选）")
+    parser.add_argument("--instruments", default=None,
+                        help='按槽换乐器，如 "chords=nylon,lead=flute"（用 tools/instruments.sh 看可选）')
     parser.add_argument("--root", default=os.path.join(_ROOT, "projects"), help="项目根目录")
     args = parser.parse_args(argv)
 
@@ -226,6 +263,11 @@ def main(argv=None):
 
         parse_key(key)
         resolved, _ = build_progression(key, degrees)
+
+        preset = args.preset or STYLE_PRESET.get(style)
+        if preset and preset not in PRESETS:
+            raise ValueError(f"未知编制预设 {preset!r}：可选 {', '.join(PRESETS)}")
+        instruments = parse_instruments(args.instruments)
     except (ValueError, NotImplementedError) as exc:
         print(f"[参数错误] {exc.args[0] if exc.args else exc}", file=sys.stderr)
         return 2
@@ -247,6 +289,8 @@ def main(argv=None):
         "sections": {name: bars for name, bars in sections},
         "velocity_base": 80,
         "cues": [],              # 手动补充的音效时间点
+        "preset": preset,        # 编制方案；按风格自动选，可用 --preset 覆盖
+        "instruments": instruments,   # 按槽微调，如 {"chords": "nylon"}
     }
     # 只在显式给了才写，否则留空 = 用该风格自己的默认值
     if args.swing is not None:
@@ -262,6 +306,8 @@ def main(argv=None):
     with open(os.path.join(project_dir, "brief.md"), "w", encoding="utf-8") as f:
         f.write(build_brief(title, args.desc, cfg, sections, resolved, project_name))
 
+    plan_map = plan_instruments(cfg)
+    lineup = "，".join(f"{slot}={entry['name']}" for slot, entry in plan_map.items())
     with open(os.path.join(project_dir, "decisions.md"), "w", encoding="utf-8") as f:
         f.write(
             f"# decisions.md — {title}\n\n"
@@ -270,6 +316,7 @@ def main(argv=None):
             f"- 描述：{args.desc or '（无）'}\n"
             f"- 风格 {style} / 调性 {key} / {bpm}bpm / 和弦 {' - '.join(resolved)}\n"
             f"- 段落：{'，'.join(f'{n}{b}小节' for n, b in sections)}\n"
+            f"- 编制：{preset or '出厂默认'}（{lineup}）\n"
         )
 
     # 推断过程如实打印，方便覆盖
@@ -299,6 +346,14 @@ def main(argv=None):
     print(f"  风格 {style}  调性 {key}  和弦 {' - '.join(resolved)}")
     print(f"  段落 {' / '.join(f'{n}:{b}' for n, b in sections)}"
           f"（共 {sum(b for _, b in sections)} 小节）")
+
+    plan_map = plan_instruments(cfg)
+    print(f"  编制 {preset or '出厂默认'}：" + "  ".join(
+        f"{slot}={entry['name']}" for slot, entry in plan_map.items()
+    ))
+    print(f"[提示] 换某个槽看 bash tools/instruments.sh；"
+          f"写进 config.json 的 instruments，如 {{\"chords\": \"nylon\"}}")
+
     print("\n下一步:")
     print(f"  bash tools/compose.sh {os.path.relpath(project_dir, _ROOT)}")
     return 0

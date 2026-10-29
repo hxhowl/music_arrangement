@@ -32,6 +32,9 @@ description: 按项目 config.json 与风格库生成多轨 MIDI，自动带产�
   `config.json` 决定这首歌的一切参数
 - **项目内覆盖**：`config.json` 的 `style_tweaks` / `arrange` 会叠在出厂默认之上
   （`styles.resolve` 与 `arrange.get` 负责合并），所以调歌不需要改全局文件
+- **乐器不在 TRACKS 里**：`compose.TRACKS` 只存 `name` / `is_drum`，program 由
+  `music/core/instruments.py` 的 `plan(cfg)` 决定（DEFAULT < `preset` < `instruments`）。
+  换乐器只用 config，不要往 TRACKS 里加 program
 - **风格是按段解析的**：`compose` 用 `arrange.<段>.style or cfg["style"]` 定该段风格，
   再把结果放进 `ctx.style_spec`；pattern 只读 `ctx.style_spec`，**不要自己 resolve**
 - pattern 签名统一 `build(inst, ctx)`，`ctx` 是 `music/core/context.py` 的 `Ctx`；
@@ -131,6 +134,8 @@ grep -A 20 '"pop": dict' music/core/styles.py   # 看一份完整样例
 | `harmonic_rhythm=… 不合理` | 每和弦 0.5~16 拍，常用 2 / 4 / 8 |
 | `swing=… 超出范围` | 0~0.8 |
 | `config.cues 每项至少要有 bar` | `cues` 是 `[{"bar": 21, "beat": 3, "what": "whoosh"}]` |
+| `未知编制预设 'x'` | `preset` 只能是 band / cinematic / lofi / acoustic / electronic |
+| `chords 没有 'sitar' 这个乐器` | 乐器名写错，报错里会列出该槽全部可选值 |
 
 ## 边界
 - 不自动 bounce 音频；不做人声
