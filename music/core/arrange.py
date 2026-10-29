@@ -1,34 +1,41 @@
 """段落编排矩阵。
 
-每个 section 决定：哪些轨出声、鼓打到什么密度、整体力度缩放多少。
+每个 section 决定：哪些轨出声、鼓打到什么密度、整体力度、要不要吊镲/过门，
+以及**这一段用哪套风格**（留空 = 用整首歌的 style）。
 
-注意分工：**这里只决定"哪一段出声、多稀多密"（light/medium/full），
-"这个密度具体怎么打"由 styles.py 决定**。所以同一份 ARRANGE 在
-cinematic 下是心跳、在 pop 下是标准 4/4、在 playful 下是错位重音。
+注意分工：这里只决定"这一段怎么排"，"这个密度具体怎么打"由 styles.py 决定。
+所以同一份 ARRANGE 在 cinematic 下是心跳、在 pop 下是标准 4/4、在 playful 下是错位重音。
 
-旧实现用 `if section in ("intro","verse","chorus")` 白名单，在 config 里加
-`"bridge"` 会**静默丢弃整段**。现在改成查表，查不到直接报错（fail loud）。
+出厂默认在下面，项目要覆盖就用 config.json 的 arrange，**不要改这个文件** ——
+改了等于改所有项目，违反"每次改动只作用于当前这首歌"。
 """
+
+from core.styles import STYLES
 
 TRACK_KEYS = ("chords", "bass", "drums", "lead", "pad")
 DRUM_LEVELS = (None, "light", "medium", "full")
 
-# 出厂默认编排。**项目要调就用 config.json 的 arrange 覆盖，不要改这里** ——
-# 改这里等于改所有项目，违反「每次改动只作用于当前这首歌」。
 # drums: None=不出鼓 / "light" / "medium" / "full"
+# style: None=用整首歌的 style；也可写 "playful" 让这一段换风格
+# crash: 段落起点是否加吊镲；fill: 是否按 fill_every 加过门
 ARRANGE = {
-    "intro":  dict(chords=True, bass=False, drums=None,     lead=False, pad=True,  vel=0.70),
-    "verse":  dict(chords=True, bass=True,  drums="medium", lead=False, pad=True,  vel=0.85),
-    "chorus": dict(chords=True, bass=True,  drums="full",   lead=True,  pad=True,  vel=1.00),
-    "bridge": dict(chords=True, bass=True,  drums="light",  lead=False, pad=True,  vel=0.80),
-    "outro":  dict(chords=True, bass=False, drums=None,     lead=False, pad=True,  vel=0.65),
+    "intro":  dict(chords=True, bass=False, drums=None,     lead=False, pad=True,
+                   vel=0.70, crash=False, fill=False, style=None),
+    "verse":  dict(chords=True, bass=True,  drums="medium", lead=False, pad=True,
+                   vel=0.85, crash=False, fill=True,  style=None),
+    "chorus": dict(chords=True, bass=True,  drums="full",   lead=True,  pad=True,
+                   vel=1.00, crash=True,  fill=True,  style=None),
+    "bridge": dict(chords=True, bass=True,  drums="light",  lead=False, pad=True,
+                   vel=0.80, crash=False, fill=True,  style=None),
+    "outro":  dict(chords=True, bass=False, drums=None,     lead=False, pad=True,
+                   vel=0.65, crash=False, fill=False, style=None),
 }
 
 
 def get(section: str, overrides: dict = None) -> dict:
     """取段落编排，允许项目内覆盖；未定义段落直接报错（不要静默跳过整段）。
 
-    overrides 形如 {"chorus": {"drums": "medium", "vel": 0.9}}，
+    overrides 形如 {"chorus": {"drums": "medium", "style": "playful"}}，
     只覆盖给出的键，其余沿用默认值。
     """
     if section not in ARRANGE:
@@ -60,6 +67,14 @@ def get(section: str, overrides: dict = None) -> dict:
             f"段落 {section!r} 的 drums={arr['drums']!r} 不合法，"
             f"只能是 None / light / medium / full"
         )
+    for flag in ("crash", "fill"):
+        if not isinstance(arr[flag], bool):
+            raise ValueError(f"段落 {section!r} 的 {flag}={arr[flag]!r} 必须是 true/false")
+    if arr["style"] is not None and arr["style"] not in STYLES:
+        raise ValueError(
+            f"段落 {section!r} 的 style={arr['style']!r} 未知，"
+            f"可选 {', '.join(STYLES)}（或留空表示跟整首歌）"
+        )
     try:
         arr["vel"] = float(arr["vel"])
     except (TypeError, ValueError):
@@ -87,3 +102,8 @@ def active_tracks(sections, overrides: dict = None) -> set:
         for key in TRACK_KEYS
         if get(section, overrides).get(key)
     }
+
+
+def section_styles(sections, overrides: dict = None) -> dict:
+    """每段实际使用的风格名（None 表示跟整首歌）；供输出提示用。"""
+    return {section: get(section, overrides)["style"] for section in sections}

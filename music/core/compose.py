@@ -76,8 +76,7 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
     num, den = cfg["time_sig"]
     style = cfg["style"]
 
-    # 风格 + 项目内微调；arrange + 项目内覆盖。都不碰全局文件
-    style_spec = resolve_style(style, cfg.get("style_tweaks"))
+    # 排练段落覆盖；风格在下面按段解析（每段可能用不同 style）
     arrange_overrides = cfg.get("arrange") or {}
 
     unused = set(arrange_overrides) - set(cfg["sections"])
@@ -98,9 +97,21 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
     # 主控力度：velocity_base 80 为基准，整体等比缩放
     master = cfg.get("velocity_base", 80) / 80.0
 
+    # 段落可以各自指定 style；同一个 style 只解析一次
+    tweaks = cfg.get("style_tweaks")
+    spec_cache = {style: resolve_style(style, tweaks)}
+    used_sections = {}
+
     bar = 0
     for section, bars in cfg["sections"].items():
         arr = get_arrange(section, arrange_overrides)
+
+        section_style = arr["style"] or style
+        if section_style not in spec_cache:
+            spec_cache[section_style] = resolve_style(section_style, tweaks)
+        if section_style != style:
+            used_sections[section] = section_style
+
         ctx = Ctx(
             bpm=bpm,
             start_bar=bar,
@@ -108,11 +119,11 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
             progression=progression,
             chords=chord_map,
             vel_scale=arr["vel"] * master,
-            style=style,
-            style_spec=style_spec,
+            style=section_style,
+            style_spec=spec_cache[section_style],
             density=arr["drums"],
-            crash=(section == "chorus"),   # 副歌进吊镲
-            fill=(section != "outro"),     # 收尾段不再加过门
+            crash=arr["crash"],
+            fill=arr["fill"],
             seed=seed,
             rng=rng,
         )
@@ -150,6 +161,9 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
     print(f"参数快照: {snapshot}")
     print(f"[info] 风格={style}  调性={cfg['key']}  和弦={' - '.join(progression)}"
           f"  seed={seed}" + ("（完全确定）" if seed == 0 else "（随机演奏）"))
+    if used_sections:
+        detail = "、".join(f"{s}={v}" for s, v in used_sections.items())
+        print(f"[info] 段落换风格: {detail}")
 
     ok = True
     if report:

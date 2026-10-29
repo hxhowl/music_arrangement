@@ -24,10 +24,13 @@ description: 按项目 config.json 与风格库生成多轨 MIDI，自动带产�
 - 换演奏：`bash tools/compose.sh <dir> --seed 9`
 
 ## 代码规则
-- **三层分工**：`music/core/arrange.py` 决定哪段出声 / 鼓多密（none/light/medium/full）/ 多响；
-  `music/core/styles.py` 决定这一档具体怎么打；`config.json` 决定这首歌的一切参数
+- **三层分工**：`music/core/arrange.py` 决定哪段出声 / 鼓多密（none/light/medium/full）/
+  多响 / **这一段用哪套风格**；`music/core/styles.py` 决定这一档具体怎么打；
+  `config.json` 决定这首歌的一切参数
 - **项目内覆盖**：`config.json` 的 `style_tweaks` / `arrange` 会叠在出厂默认之上
   （`styles.resolve` 与 `arrange.get` 负责合并），所以调歌不需要改全局文件
+- **风格是按段解析的**：`compose` 用 `arrange.<段>.style or cfg["style"]` 定该段风格，
+  再把结果放进 `ctx.style_spec`；pattern 只读 `ctx.style_spec`，**不要自己 resolve**
 - pattern 签名统一 `build(inst, ctx)`，`ctx` 是 `music/core/context.py` 的 `Ctx`；
   禁止 `if section == ...`，禁止写死音高或节奏常量
 - 风格参数一律从 `ctx.style_spec` 取，**不要在 pattern 里再 `resolve_style`**
@@ -48,7 +51,7 @@ description: 按项目 config.json 与风格库生成多轨 MIDI，自动带产�
 grep -A 20 '"pop": dict' music/core/styles.py   # 看一份完整样例
 ```
 
-改完大致长这样（字段顺序不重要，缺字段会 KeyError）：
+改完大致长这样（字段一个都不能少，少一个会 KeyError）：
 
 ```python
 "pop_dark": dict(
@@ -60,9 +63,12 @@ grep -A 20 '"pop": dict' music/core/styles.py   # 看一份完整样例
         "medium": [("kick", 0.0, 0.1, 88), ("snare", 2.0, 0.1, 74)],
         "full":   [("kick", 0.0, 0.1, 105), ("snare", 1.0, 0.1, 90)],
     },
-    lead=dict(target=69, breath_every=4,
+    lead=dict(target=69, range=(60, 83), breath_every=4,
+              breath=((0, 0.0, 1.8), (2, 2.0, 1.8)),
               phrases=[[(0, 0.0, 0.8), (1, 1.0, 0.8)]]),
     pad=dict(octave=3, intervals=(12, 16, 19), velocity=34, hold=0.98),
+    fill=FILL_STD, fill_every=4,
+    ghost=dict(chance=0.3, velocity=28),
 ),
 ```
 
@@ -73,8 +79,15 @@ grep -A 20 '"pop": dict' music/core/styles.py   # 看一份完整样例
 | `chords.hold` | 和弦占小节的比例（0.35 断奏 / 0.99 连绵） |
 | `bass.rhythm` | `(起始拍, 时长拍, accent, 半音偏移)`，偏移 7=五度、12=八度 |
 | `drums[档]` | `(GM 键名, 起始拍, 时长拍, 基准力度)` |
+| `lead.range` | 旋律音区 `(最低音, 最高音)` |
+| `lead.velocity` | 旋律基准力度 |
 | `lead.phrases` | `(和弦内第几个音, 起始拍, 时长拍)`，一组短语按 `(i//2)` 轮换 |
 | `lead.breath_every` | 每 N 小节换成长音呼吸，0 = 不呼吸 |
+| `lead.breath` | 呼吸小节用的长音，格式同 phrases |
+| `fill` | 过门音符 `(GM 键名, 起始拍偏移)`，铺满第 4 拍 |
+| `fill_every` | 每 N 小节加一次过门 |
+| `ghost` | 反拍轻踩镲 `dict(chance=概率, velocity=力度)`，chance=0 表示不加 |
+| `humanize` | `dict(velocity=力度扰动, sway=时值摆动秒)`，只在 seed>0 生效；鼓用固定更小的量 |
 
 - 三个密度档（light/medium/full）都要有，否则跑该密度的段落会报错
   （`none` 不用定义：`ARRANGE` 里写 `drums=None` 时整段不出鼓）

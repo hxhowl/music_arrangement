@@ -25,9 +25,11 @@ AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预�
 2. **模型只写代码**：不手动改 MIDI 二进制；改曲子 = 改代码/配置后重新生成。
 3. **不覆盖历史**：`tools/compose.sh` 默认版本号自增，每版自动写 `<name>-vN.config.json` 快照。
    `decisions.md` 记录每次改动的听感预期。
-4. **三层职责不许混**：`music/core/arrange.py` 管"哪段出声、多密、多响"；
-   `music/core/styles.py` 管"这一档具体怎么演奏"；`config.json` 管"这首歌"。
-   前两层是出厂默认，项目通过 `arrange` / `style_tweaks` 覆盖，不改源文件。
+4. **三层职责不许混**：`music/core/arrange.py` 管"哪段出声、多密、多响、
+   这一段用哪套风格"；`music/core/styles.py` 管"这一档具体怎么演奏"；
+   `config.json` 管"这首歌"。前两层是出厂默认，项目通过 `arrange` / `style_tweaks`
+   覆盖，不改源文件。
+   整首一个主基调（`style`），需要局部反差就在 `arrange.<段>.style` 上写。
    pattern 里禁止 `if section == ...`，禁止写死音高与节奏常量。
 5. **和弦只有一个来源**：`music/core/theory.py` 的 `build_progression(key, 级数)`。
    调性写 `key`、进行写级数，不要写绝对和弦名。

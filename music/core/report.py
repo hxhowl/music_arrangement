@@ -72,6 +72,16 @@ def check(mid_path: str, config: dict = None, progression=None) -> bool:
               + (f"  和弦={' - '.join(chords)}" if chords else "")
               + f"  seed={seed}")
 
+        from core.arrange import section_styles
+        overrides = config.get("arrange") or {}
+        changed = {
+            section: name
+            for section, name in section_styles(config["sections"], overrides).items()
+            if name
+        }
+        if changed:
+            print("  段落换风格: " + "、".join(f"{k}={v}" for k, v in changed.items()))
+
     print(f"\n  轨        音符   音域        力度      至(小节)")
     expected_last = _last_active_bar(config["sections"], config.get("arrange")) if config else {}
     for inst in pm.instruments:

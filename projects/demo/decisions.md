@@ -61,3 +61,14 @@
 - `seed > 0` 可出"同一编曲的不同演奏"（力度扰动、鼓的装饰音、旋律短语起点）。
 - 本曲的 `seed` 保持 0，`style_tweaks` / `arrange` 为空 —— 所以 `demo-v5.mid`
   与改动前字节完全一致（已用 sha256 对比确认）。
+
+## v5 之后：段落级风格 + 清掉写死的创作参数（产物未变）
+
+- `config.json` 的 `arrange.<段>.style` 可以让某一段换风格，整首主基调仍由 `style` 决定。
+  实测：主歌 cinematic 不动，副歌换 playful 后和弦从 2.38s 长音变 0.84s 断奏、
+  贝斯 4→16 音、鼓 20→53 音，主歌一个音符没变。
+- 原先写死在代码里的创作参数移入 `styles.py`：
+  `crash` / `fill` 策略（原来写死 `section == "chorus"`）、
+  旋律音区、过门间隔（`fill_every`）、装饰音概率与力度（`ghost`）、
+  旋律力度（`lead.velocity`）、humanize 强度（`humanize`）。
+- 本曲没用到任何新字段，`demo-v5.mid` 与改动前字节一致（sha256 642ca65c…）。

@@ -29,15 +29,21 @@ description: 用户对已生成版本有意见时（鼓太弱、太吵、想更�
 | 太快 / 太慢 | `bpm` | |
 | 换个调 | `key` | 和弦会跟着变，不用改和弦名 |
 | 换和弦进行 | `progression` | 级数写法，如 `["i","VI","III","VII"]` |
-| 整体气质不对（太摇滚 / 想更空） | `style` | 整套换掉 |
+| 整体气质不对（太摇滚 / 想更空） | `style` | 整套换掉（影响全曲） |
+| 只有某一段想要另一种感觉 | `arrange.<段>.style` | 例如副歌 pop、结尾 playful |
 | 某一轨太吵 / 太弱 | `style_tweaks.<轨>.velocity` | chords / bass / pad / lead |
 | 鼓太密 / 太稀 | `arrange.<段>.drums` | `None` / `light` / `medium` / `full` |
 | 鼓的花活不对 | `style_tweaks.drums.<档>` | 换掉某一档的谱型 |
+| 过门太频繁 | `style_tweaks.fill_every` | 每 N 小节一次 |
+| 不想要吊镲 | `arrange.<段>.crash` | `true` / `false` |
 | 贝斯太密 / 走向奇怪 | `style_tweaks.bass.rhythm` | 节奏型，可改切分 |
 | 旋律太满 / 太空 | `style_tweaks.lead.breath_every` | 每 N 小节呼吸一次，0 = 不呼吸 |
 | 副歌没起来 | `arrange.chorus` 的 `vel` 或 `drums` | 只动副歌 |
 | 段落长度 / 想加 bridge | `sections` | 键名要在 `ARRANGE` 里存在 |
 | 想多几版挑一个 | `seed` 或 `--takes N` | 见下 |
+
+⚠️ `style_tweaks` 对**所有段落**生效（包括换了风格的段落）——它调的是"这首歌的演奏参数"，
+不是"某个风格的定义"。要区分段落请用 `arrange.<段>`。
 
 ## 常用改法
 

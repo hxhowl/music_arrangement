@@ -81,8 +81,8 @@ bash tools/check.sh projects/demo/music/output/demo-v5.mid projects/demo
 
 | 层 | 出厂默认在哪 | 这一首怎么改 | 决定什么 |
 |---|---|---|---|
-| **段落编排** | `music/core/arrange.py` 的 `ARRANGE` | `config.json` 的 `arrange` | 哪段有哪些轨、鼓多密（none/light/medium/full）、力度缩放 |
-| **风格** | `music/core/styles.py` 的 `STYLES` | `config.json` 的 `style` + `style_tweaks` | 同一档"medium"在 cinematic 是心跳鼓、在 pop 是标准 4/4 |
+| **段落编排** | `music/core/arrange.py` 的 `ARRANGE` | `config.json` 的 `arrange` | 哪段有哪些轨、鼓多密（none/light/medium/full）、力度、吊镲与过门、**这一段用哪套风格** |
+| **风格** | `music/core/styles.py` 的 `STYLES` | `config.json` 的 `style`（整首）+ `style_tweaks`（微调） | 同一档"medium"在 cinematic 是心跳鼓、在 pop 是标准 4/4 |
 | **调性与进行** | — | `config.json` 的 `key` + `progression` | 实际和弦，如 `Am` + `i-VI-III-VII` → Am-F-C-G |
 
 三者正交：换风格不影响段落结构，换调不影响律动。
@@ -95,11 +95,11 @@ bash tools/check.sh projects/demo/music/output/demo-v5.mid projects/demo
 | 字段 | 作用 |
 |---|---|
 | `bpm` / `key` / `progression` | 速度、调性、和弦进行（级数） |
-| `style` | 四选一：cinematic / pop / lofi / playful |
+| `style` | 整首歌的主基调，四选一：cinematic / pop / lofi / playful |
 | `sections` | 段落顺序与长度 |
 | `style_tweaks` | **只对这一首**微调风格参数，如 `{"bass": {"velocity": 78}}` |
-| `arrange` | **只对这一首**覆盖段落编排，如 `{"chorus": {"drums": "medium"}}` |
-| `seed` | `0` = 完全确定；`>0` = 随机演奏（力度/装饰音/短语起点） |
+| `arrange` | **只对这一首**覆盖段落：`drums` / `vel` / `crash` / `fill` / `style` |
+| `seed` | `0` = 完全确定；`>0` = 随机演奏（力度/时值/装饰音/短语起点） |
 | `velocity_base` | 整体力度，80 为基准 |
 
 ## 四种风格
@@ -116,20 +116,46 @@ bash tools/check.sh projects/demo/music/output/demo-v5.mid projects/demo
 `config.json` 的 `sections` 顺序就是时间轴顺序，键名必须在 `ARRANGE` 里存在，
 否则直接报错（不会静默丢掉整段）。
 
-| 段落 | chords | bass | drums | lead | pad | 力度 |
-|---|---|---|---|---|---|---|
-| intro | ✓ | — | — | — | ✓ | 0.70 |
-| verse | ✓ | ✓ | medium | — | ✓ | 0.85 |
-| chorus | ✓ | ✓ | full | ✓ | ✓ | 1.00 |
-| bridge | ✓ | ✓ | light | — | ✓ | 0.80 |
-| outro | ✓ | — | — | — | ✓ | 0.65 |
+| 段落 | chords | bass | drums | lead | pad | 力度 | 风格 |
+|---|---|---|---|---|---|---|---|
+| intro | ✓ | — | — | — | ✓ | 0.70 | 跟整首 |
+| verse | ✓ | ✓ | medium | — | ✓ | 0.85 | 跟整首 |
+| chorus | ✓ | ✓ | full | ✓ | ✓ | 1.00 | 跟整首 |
+| bridge | ✓ | ✓ | light | — | ✓ | 0.80 | 跟整首 |
+| outro | ✓ | — | — | — | ✓ | 0.65 | 跟整首 |
+
+`crash` 只有副歌为 `true`；`fill` 除 intro/outro 外为 `true`。
 
 想只改这一首，就在 `config.json` 里写覆盖，不用动上面的表：
 
 ```jsonc
-"arrange": { "chorus": { "drums": "medium", "vel": 1.05 } },
+"arrange": {
+  "chorus": { "drums": "medium", "vel": 1.05 },
+  "outro":  { "style": "playful" }
+},
 "style_tweaks": { "bass": { "velocity": 78 }, "lead": { "breath_every": 8 } }
 ```
+
+## 段落换风格（主基调 + 局部反差）
+
+`style` 定整首的主基调，`arrange.<段>.style` 让某一段换风格 —— 这是"电影感但结尾反差"
+这类描述的落地方式：
+
+```jsonc
+{
+  "style": "cinematic",                     // 整首电影感
+  "arrange": {
+    "chorus": { "style": "pop" },           // 副歌推起来
+    "outro":  { "style": "playful" }        // 结尾突然无厘头
+  }
+}
+```
+
+实测（主歌不动、副歌换 playful）：副歌和弦从 2.38 秒长音变成 0.84 秒断奏，
+贝斯 4 → 16 个音，鼓 20 → 53 个音，主歌一个音符都没变。
+
+注意：`style_tweaks` 对**所有段落**生效（包括换了风格的段落），因为它改的是
+"这首歌的演奏参数"，不是"某个风格的定义"。
 
 ## Logic Pro 导入
 

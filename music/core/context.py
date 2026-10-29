@@ -39,17 +39,32 @@ class Ctx:
     def bar_time(self, index: int) -> float:
         return (self.start_bar + index) * self.bar_len
 
-    def jitter(self, velocity: int, spread: int = 4) -> int:
-        """力度微扰动。seed=0 时原样返回，保证同参数可复现。"""
+    def jitter(self, velocity: int, spread: int = None) -> int:
+        """力度微扰动。seed=0 时原样返回，保证同参数可复现。
+
+        spread 不给就用风格的 humanize.velocity（默认 4）。
+        """
         if self.rng is None:
             return max(1, min(127, int(velocity)))
+        if spread is None:
+            spread = int(self.humanize.get("velocity", 4))
         return max(1, min(127, int(velocity) + self.rng.randint(-spread, spread)))
 
-    def sway(self, seconds: float, amount: float = 0.008) -> float:
-        """时值微摆动（默认 ±8ms）。量很小，只为让不同 take 听起来像不同次演奏。"""
+    def sway(self, seconds: float, amount: float = None) -> float:
+        """时值微摆动。amount 不给就用风格的 humanize.sway（默认 ±8ms）。
+
+        量很小，只为让不同 take 听起来像不同次演奏。
+        """
         if self.rng is None:
             return seconds
+        if amount is None:
+            amount = float(self.humanize.get("sway", 0.008))
         return max(0.0, seconds + self.rng.uniform(-amount, amount))
+
+    @property
+    def humanize(self) -> dict:
+        """风格里的 humanize 参数（力度扰动幅度、时值摆动秒数）。"""
+        return self.style_spec.get("humanize") or {}
 
     def chance(self, probability: float) -> bool:
         """按概率决定是否加装饰音。seed=0 时永远为 False。"""
