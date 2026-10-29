@@ -7,7 +7,7 @@
 ## 一句话出一首编曲
 
 ```bash
-bash tools/new_song.sh "60秒 亲子短视频 电影感 慢" --duration 60 --key Am
+bash tools/new_song.sh "60秒 悬疑感 缓慢推进" --duration 60 --key Am
 bash tools/compose.sh projects/20261028-cinematic-001
 ```
 
@@ -18,7 +18,7 @@ bash tools/compose.sh projects/20261028-cinematic-001
 ```
 music_arrangement/
 ├── agents.md                  # WorkBuddy 全局规则
-├── USER.md                    # 个人偏好与审美设定
+├── USER.md                    # 稳定的协作偏好（不含音乐定位 —— 定位由每次输入决定）
 ├── README.md
 ├── docs/                      # code review / 可行性审核
 ├── music/                     # 代码包
@@ -68,7 +68,7 @@ bash tools/compose.sh projects/demo
 
 ## 日常使用
 ```
-bash tools/new_song.sh "90秒 亲子 电影感 结尾反差" --duration 90
+bash tools/new_song.sh "90秒 欢快片头 结尾反差" --duration 90 --key C
 bash tools/compose.sh projects/20261028-playful-001        # 版本号自动递增
 bash tools/compose.sh projects/demo v5                      # 指定版本号
 bash tools/check.sh projects/demo/music/output/demo-v5.mid projects/demo

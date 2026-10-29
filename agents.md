@@ -4,6 +4,10 @@
 AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预览与重制。
 不依赖 Suno / Udio 等在线整曲生成。
 
+**这是一条通用产线，不是一个"固定风格的项目"**：每首歌的音乐定位来自当次输入
+（用户那句描述 + `new_song.sh` 的参数），落进该项目的 `brief.md` / `config.json`。
+`USER.md` 只放稳定的协作偏好，不预设场景与风格 —— 不要拿上一首的设定套下一首。
+
 ## 环境
 - OS: macOS
 - DAW: Logic Pro（默认 48k/24bit，导入 MIDI 时读文件 BPM）

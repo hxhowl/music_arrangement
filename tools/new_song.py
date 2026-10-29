@@ -2,7 +2,7 @@
 """从一个描述建新项目：目录 + brief.md + config.json + decisions.md。
 
 用法:
-    python tools/new_song.py "90秒 亲子短视频 电影感 结尾来点反差" --duration 90
+    python tools/new_song.py "60秒 悬疑感 缓慢推进" --duration 60
     python tools/new_song.py "慵懒的周末早晨" --style lofi --bpm 76 --key Dm
     python tools/new_song.py --style pop --key C --sections "intro:4,verse:8,chorus:8,outro:4"
 
@@ -29,8 +29,10 @@ RULES = (
     (("无厘头", "反差", "搞笑", "俏皮", "怪", "调皮"), 128, "playful"),
     (("慵懒", "放松", "日常", "生活", "lofi", "lo-fi", "午后"), 76, "lofi"),
     (("电影", "史诗", "悬疑", "悲伤", "离别", "安静", "温柔", "抒情", "慢"), 72, "cinematic"),
-    (("欢快", "活泼", "热闹", "快", "节奏", "亲子", "短视频", "轻快"), 120, "pop"),
+    (("欢快", "活泼", "热闹", "快", "节奏", "轻快"), 120, "pop"),
 )
+# 注意：这里只放"情绪/听感"词，不放"使用场景"词。
+# 「亲子」「短视频」这类场景词说明不了要什么风格，收进来等于替用户做定位。
 
 # 没给 --key 时的默认调：小调风格给小调，大调风格给大调
 STYLE_DEFAULT_KEY = {
@@ -42,15 +44,21 @@ STYLE_DEFAULT_KEY = {
 
 
 def infer(desc: str):
-    """从描述里收集所有命中的 (bpm, style, 关键词)，按 RULES 优先级排序。"""
+    """从描述里收集命中的 (bpm, style, 关键词)，按**在描述里出现的先后**排序。
+
+    取最先提到的那个：用户通常先说主基调。
+    "电影感…结尾来点反差" → 主体是电影感；反过来写就该是 playful。
+    """
     text = (desc or "").lower()
     hits = []
     for keywords, bpm, style in RULES:
-        for word in keywords:
-            if word in text:
-                hits.append((bpm, style, word))
-                break
-    return hits
+        positions = [(text.find(word), word) for word in keywords if word in text]
+        if positions:
+            position, word = min(positions)
+            hits.append((position, bpm, style, word))
+
+    hits.sort(key=lambda hit: hit[0])
+    return [(bpm, style, word) for _, bpm, style, word in hits]
 
 
 def parse_sections(text: str):
@@ -178,7 +186,7 @@ def build_brief(title, desc, cfg, sections, resolved, project_name):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="从一句话建一个新的编曲项目")
-    parser.add_argument("desc", nargs="?", default="", help="一句话描述，如 \"90秒 亲子 电影感\"")
+    parser.add_argument("desc", nargs="?", default="", help="一句话描述，如 \"60秒 悬疑感 缓慢推进\"")
     parser.add_argument("--title", default=None, help="曲名，默认用描述前 20 字")
     parser.add_argument("--slug", default=None, help="目录名后缀，默认用风格名")
     parser.add_argument("--bpm", type=int, default=None)
