@@ -9,6 +9,7 @@
 
 数据结构：
   chords : octave / hold(占小节比例) / velocity / range=(最低, 最高) / seventh(是否用七和弦)
+           beats=每个和弦占几拍（4=一小节一个，2=半小节一个，8=两小节一个）
   bass   : octave / low / high / velocity / rhythm=[(起始拍, 时长拍, accent, 半音偏移)]
   drums  : {密度档: [(GM键名, 起始拍, 时长拍, 基准力度)]}
   lead   : target(中心音区) / range=(最低音, 最高音) / breath_every(每 N 小节呼吸，0=不呼吸)
@@ -21,6 +22,8 @@
   humanize : dict(velocity=力度扰动幅度, sway=时值摆动秒数)，只在 seed>0 时生效
   perc   : dict(gm=鼓件, step=间隔拍, velocity=力度, accents=重拍位置)
   arp    : dict(range=(最低, 最高), step=间隔拍, velocity=力度, octaves=跨几个八度)
+  counter: dict(range=(最低, 最高), velocity=力度, target=中心音,
+                rhythm=[(起始拍, 时长拍, 音级)]) 副旋律，只在主旋律空着的地方出声
 """
 
 import copy
@@ -45,7 +48,7 @@ def _quarters(gm_key: str, base: int, length: float = 0.06):
 STYLES = {
     # 电影感：长音铺底、鼓只做心跳、旋律大跳
     "cinematic": dict(
-        chords=dict(octave=3, hold=0.99, velocity=46, range=(48, 67)),
+        chords=dict(octave=3, hold=0.99, velocity=46, range=(48, 67), beats=8),
         bass=dict(octave=1, low=33, high=44, velocity=74,
                   rhythm=[(0.0, 3.9, 1.0, 0)]),
         drums={
@@ -61,12 +64,14 @@ STYLES = {
         ghost=dict(chance=0.0, velocity=28),
         perc=dict(gm="shaker", step=1.0, velocity=32, accents=(0,)),
         arp=dict(range=(60, 79), step=0.5, velocity=38, octaves=2),
+        counter=dict(range=(52, 69), velocity=54,
+                     rhythm=[(0.0, 1.8, 2), (2.5, 1.2, 1)]),   # 长音答句
         humanize=dict(velocity=3, sway=0.008),   # 心跳鼓不加装饰音
     ),
 
     # 流行：标准 4/4，贝斯八分推进到五度
     "pop": dict(
-        chords=dict(octave=3, hold=0.88, velocity=58, range=(48, 67)),
+        chords=dict(octave=3, hold=0.88, velocity=58, range=(48, 67), beats=4),
         bass=dict(octave=1, low=33, high=44, velocity=88,
                   rhythm=[(0.0, 0.45, 1.0, 0), (1.0, 0.45, 0.85, 0),
                           (2.0, 0.45, 1.0, 0), (2.5, 0.4, 0.75, 7),
@@ -88,12 +93,14 @@ STYLES = {
         ghost=dict(chance=0.35, velocity=28),
         perc=dict(gm="tambourine", step=0.5, velocity=40, accents=(1, 3)),
         arp=dict(range=(60, 79), step=0.25, velocity=42, octaves=2),
+        counter=dict(range=(55, 71), velocity=62,
+                     rhythm=[(1.5, 0.45, 3), (3.5, 0.45, 2)]),   # 反拍答句
         humanize=dict(velocity=3, sway=0.008),
     ),
 
     # 慵懒：切分贝斯、半拍鼓、短句重复
     "lofi": dict(
-        chords=dict(octave=3, hold=0.72, velocity=52, range=(48, 67), seventh=True),
+        chords=dict(octave=3, hold=0.72, velocity=52, range=(48, 67), seventh=True, beats=2),
         bass=dict(octave=1, low=33, high=44, velocity=80,
                   rhythm=[(0.0, 0.7, 1.0, 0), (0.75, 0.4, 0.6, 0),
                           (1.5, 0.5, 0.85, 0), (2.5, 0.6, 0.9, 7)]),
@@ -114,12 +121,14 @@ STYLES = {
         ghost=dict(chance=0.35, velocity=24),
         perc=dict(gm="shaker", step=0.5, velocity=30, accents=(0, 2)),
         arp=dict(range=(57, 76), step=0.5, velocity=36, octaves=2),
+        counter=dict(range=(55, 71), velocity=56,
+                     rhythm=[(1.0, 0.5, 1), (3.0, 0.6, 2)]),   # 切分答句
         humanize=dict(velocity=3, sway=0.008),
     ),
 
     # 无厘头：断奏和弦、错位重音、大跳旋律
     "playful": dict(
-        chords=dict(octave=3, hold=0.35, velocity=66, range=(50, 69)),
+        chords=dict(octave=3, hold=0.35, velocity=66, range=(50, 69), beats=4),
         # 贝斯音区比其它风格低一个窗口：这套律动有 +12 的八度跳，
         # 窗口太高会把贝斯顶到 G3，和 chords 轨撞在一起
         bass=dict(octave=1, low=26, high=38, velocity=92,
@@ -144,6 +153,8 @@ STYLES = {
         ghost=dict(chance=0.45, velocity=30),
         perc=dict(gm="rim", step=0.5, velocity=36, accents=(1,)),
         arp=dict(range=(64, 84), step=0.25, velocity=48, octaves=2),
+        counter=dict(range=(57, 74), velocity=66,
+                     rhythm=[(0.75, 0.35, 3), (2.75, 0.35, 2)]),   # 错位答句
         humanize=dict(velocity=3, sway=0.008),
     ),
 }
@@ -259,6 +270,27 @@ def _check_shapes(spec: dict) -> None:
     low, high = chords["range"]
     if not low < high:
         raise ValueError(f"chords.range={chords['range']!r} 不合法，应为 (最低音, 最高音)")
+    if not 0.5 <= float(chords.get("beats", 4)) <= 16:
+        raise ValueError(
+            f"chords.beats={chords.get('beats')!r} 不合理：应在 0.5~16 拍之间"
+            f"（4 = 一小节一个和弦，2 = 半小节一个，8 = 两小节一个）"
+        )
+
+    counter = spec["counter"]
+    low, high = counter["range"]
+    if not low < high:
+        raise ValueError(f"counter.range={counter['range']!r} 不合法")
+    if not 1 <= int(counter["velocity"]) <= 127:
+        raise ValueError(f"counter.velocity={counter['velocity']!r} 应在 1~127")
+    for item in counter["rhythm"]:
+        if len(item) != 3:
+            raise ValueError(
+                f"counter.rhythm 每项应为 (起始拍, 时长拍, 音级)，收到 {item!r}"
+            )
+        if not 0 <= int(item[2]) <= 3:
+            raise ValueError(
+                f"counter.rhythm 的音级 {item[2]!r} 越界，只能是 0~3（和弦内第 1~4 个音）"
+            )
 
     pad = spec["pad"]
     if not 0 < float(pad.get("duck", 1.0)) <= 1:

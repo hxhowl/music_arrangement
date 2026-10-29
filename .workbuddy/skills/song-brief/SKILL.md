@@ -18,6 +18,7 @@ description: 当用户说“写一首歌/起个编曲/做个 60 秒配乐”时�
 2. **一条命令建项目**（同时生成 `brief.md` / `config.json` / `decisions.md`）：
    ```bash
    bash tools/new_song.sh "<用户的原话描述>" --duration 60 --key Am --style cinematic
+   # 可选：--swing 0.33（摇一点）  --harmonic-rhythm 2（半小节换和弦）
    ```
    - `--style` / `--bpm` 不给就按关键词推断，脚本会打印推断依据（可覆盖）
    - `--key` **不会按情绪推断**，只跟风格走：cinematic/lofi → Dm，pop → C，playful → G
@@ -26,7 +27,9 @@ description: 当用户说“写一首歌/起个编曲/做个 60 秒配乐”时�
      要精确控制就用 `--sections "intro:4,verse:8,chorus:8,outro:4"`
    - 段落名、风格名、调性写错会在**建目录之前**报错，不会留下半个项目
 
-3. **复核 `brief.md`**：风格、调性、和弦、段落、时长是否对得上用户的描述。
+3. **复核 `brief.md`**：风格、调性、和弦、段落、和声节奏、时长是否对得上用户的描述。
+   描述里出现"结尾要反差 / 副歌推起来"这类话，本阶段只记进 `brief.md`；
+   真正落地是 `arrange.<段>.style`（见 `midi-iterate`）。
 
 4. **参数要改，直接改该项目的 `config.json`**（字段不多，手改最快）。
    ⚠️ 不要"改完重跑 new_song.sh"—— 它遇到同名目录会自动建 `-002`，你会得到两个项目。
@@ -43,6 +46,9 @@ description: 当用户说“写一首歌/起个编曲/做个 60 秒配乐”时�
 | `style` | 只能是 `music/core/styles.py` 里已定义的（cinematic / pop / lofi / playful） |
 | `sections` | 键名必须在 `music/core/arrange.py` 的 `ARRANGE` 里存在 |
 | `seed` | `0` = 完全确定（默认）；`>0` = 随机演奏 |
+| `harmonic_rhythm` | 每和弦几拍。不写 = 跟风格（cinematic 8 / pop 4 / lofi 2 / playful 4） |
+| `swing` | 0 = 直拍（默认）；0.33≈三连音感 |
+| `cues` | 手动补的音效时间点，建项目时留空 |
 | `style_tweaks` | 只对这一首微调风格参数，建项目时留空即可 |
 | `arrange` | 只对这一首覆盖段落编排，建项目时留空即可 |
 | `velocity_base` | 80 为基准，整体音量比例 |

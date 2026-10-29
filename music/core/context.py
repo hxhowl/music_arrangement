@@ -9,12 +9,17 @@ class Ctx:
     把 bpm / 段落位置 / 和弦进行 / 风格 / 力度 / 随机源一次性传下去，
     pattern 就不用满世界 import 全局变量了（旧版直接 import PROGRESSION，
     导致换歌必须改全局，是"创作隔离"漏掉的那一环）。
+
+    时间轴的三个维度都在这里统一处理，pattern 不要自己算：
+      - 和声节奏：`chord_spans()` 把一小节切成若干和声段（半小节换和弦）
+      - swing：`at()` 会把每拍后半拍往后推
+      - 随机演奏：`jitter()` / `sway()` / `chance()`
     """
 
     bpm: float
     start_bar: int
     bars: int
-    progression: list          # 实际和弦名，按小节循环，如 ["F#m","D","A","E"]
+    progression: list          # 实际和弦名，按和声节奏循环，如 ["F#m","D","A","E"]
     chords: dict               # 和弦名 -> 相对根音的半音列表
     vel_scale: float
     style: str
@@ -27,6 +32,15 @@ class Ctx:
     # 主旋律已经占用的音高（按小节）：铺底声部据此让位，避免同音高同时响
     occupied: dict = field(default_factory=dict)
     lead_playing: bool = False
+    # 每个和弦占几拍：4 = 一小节一个，2 = 半小节一个，8 = 两小节一个
+    beats_per_chord: float = 4.0
+    beats_per_bar: int = 4
+    # 8 分音符摇摆量 0~0.8：0.33 大约是"三连音感"，0.66 是很夸张的 shuffle
+    swing: float = 0.0
+    # 主旋律实际写下的音符 (start, end, pitch)，供副旋律/铺底避让
+    lead_notes: list = field(default_factory=list)
+
+    # ---------- 时间 ----------
 
     @property
     def beat(self) -> float:
@@ -34,13 +48,71 @@ class Ctx:
 
     @property
     def bar_len(self) -> float:
-        return 4 * self.beat
-
-    def chord_at(self, index: int) -> str:
-        return self.progression[index % len(self.progression)]
+        return self.beats_per_bar * self.beat
 
     def bar_time(self, index: int) -> float:
+        """第 index 小节（相对本段起点）的绝对开始时间。"""
         return (self.start_bar + index) * self.bar_len
+
+    def swing_shift(self, beat_offset: float) -> float:
+        """8 分音符摇摆：把每拍的后半拍往后推。
+
+        完整 swing 会把后半拍推到 2/3 拍位置，位移量是 beat/6；
+        这里按 swing 系数缩放，所以 1.0 是"三连音感觉"，0.5 是轻微 shuffle。
+        """
+        if not self.swing:
+            return 0.0
+        frac = beat_offset % 1.0
+        if abs(frac - 0.5) < 1e-6:
+            return self.swing * self.beat / 6.0
+        return 0.0
+
+    def at(self, bar_index: int, beat_offset: float = 0.0) -> float:
+        """小节 + 拍偏移 -> 绝对秒数（已含 swing）。
+
+        所有 pattern 都该用它定位，不要自己写 `bar_time + offset * beat`，
+        否则 swing 会漏掉某些轨 —— 那比没有 swing 更难受。
+        """
+        return self.bar_time(bar_index) + beat_offset * self.beat \
+            + self.swing_shift(beat_offset)
+
+    # ---------- 和声 ----------
+
+    def chord_index(self, bar_index: int, beat_offset: float = 0.0) -> int:
+        """把（小节 + 拍偏移）换算成进行的下标，实现半小节换和弦。"""
+        beats = bar_index * self.beats_per_bar + beat_offset
+        return int((beats + 1e-9) // self.beats_per_chord)
+
+    def chord_at_beat(self, bar_index: int, beat_offset: float) -> str:
+        """某一拍位上正在响的和弦。半小节换和弦时，同一小节会得到两个不同答案。"""
+        return self.progression[self.chord_index(bar_index, beat_offset) % len(self.progression)]
+
+    def chord_spans(self, bar_index: int):
+        """把一小节切成和声段：[(起始拍, 时长拍, 和弦名), ...]。
+
+        beats_per_chord=4 时只有一个段（一小节一个和弦）；
+        =2 时是两段（半小节换和弦）；=8 时每两小节才换一次。
+        """
+        spans = []
+        cursor = 0.0
+        while cursor < self.beats_per_bar - 1e-9:
+            index = self.chord_index(bar_index, cursor)
+            boundary = (index + 1) * self.beats_per_chord - bar_index * self.beats_per_bar
+            end = min(float(self.beats_per_bar), boundary)
+            if end <= cursor + 1e-9:
+                end = float(self.beats_per_bar)
+            spans.append((cursor, end - cursor, self.progression[index % len(self.progression)]))
+            cursor = end
+        return spans
+
+    def chord_end_beat(self, bar_index: int, beat_offset: float) -> float:
+        """当前和弦在本小节内结束于第几拍（用于把音符时长切在换和弦处）。"""
+        for start, span, _ in self.chord_spans(bar_index):
+            if start - 1e-9 <= beat_offset < start + span - 1e-9:
+                return start + span
+        return float(self.beats_per_bar)
+
+    # ---------- 随机演奏 ----------
 
     def jitter(self, velocity: int, spread: int = None) -> int:
         """力度微扰动。seed=0 时原样返回，保证同参数可复现。
@@ -79,9 +151,19 @@ class Ctx:
             return options[0]
         return options[self.rng.randrange(len(options))]
 
+    # ---------- 声部避让 ----------
+
     def occupy(self, bar_index: int, pitches) -> None:
         """登记这一段已被主旋律占用的音高。"""
         self.occupied.setdefault(bar_index, set()).update(pitches)
 
     def is_occupied(self, bar_index: int, pitch: int) -> bool:
         return pitch in self.occupied.get(bar_index, ())
+
+    def register_lead(self, start: float, end: float, pitch: int) -> None:
+        """登记主旋律的一个音，供副旋律判断"这里有没有空"。"""
+        self.lead_notes.append((start, end, pitch))
+
+    def lead_sounding(self, start: float, end: float) -> bool:
+        """主旋律在 [start, end) 内是否正在响。"""
+        return any(s < end - 1e-6 and start < e - 1e-6 for s, e, _ in self.lead_notes)

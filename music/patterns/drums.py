@@ -20,6 +20,7 @@ def build(drum_inst, ctx):
 
     密度档由 arrange 决定；怎么打、过门多密、要不要加装饰音由 style 决定，
     都能在 config.json 的 arrange / style_tweaks 里按这首歌覆盖。
+    所有拍位都走 `ctx.at()`，所以开 swing 时鼓也会跟着摇。
     """
     if not ctx.density:
         return
@@ -36,24 +37,23 @@ def build(drum_inst, ctx):
     ghost_chance = float(ghost.get("chance", 0))
     ghost_velocity = int(ghost.get("velocity", 28))
     beat = ctx.beat
+    last_beat = ctx.beats_per_bar - 1  # 过门落在最后一拍
 
     for i in range(ctx.bars):
-        start = ctx.bar_time(i)
-
         if ctx.crash and i == 0:
-            _add(drum_inst, _pitch("crash"), start, 0.6,
+            _add(drum_inst, _pitch("crash"), ctx.at(i), 0.6 * beat,
                  scale_velocity(92, ctx.vel_scale))
 
         # 过门只出现在满编段落，每 fill_every 小节一次，最后一拍让给过门
         do_fill = ctx.fill and ctx.density == "full" and (i + 1) % fill_every == 0
 
         for gm_key, offset, beats, velocity in events:
-            if do_fill and offset >= 3.0:
+            if do_fill and offset >= last_beat:
                 continue
             _add(
                 drum_inst,
                 _pitch(gm_key),
-                ctx.sway(start + offset * beat, 0.004),   # 鼓摆小一点，太飘会显得不专业
+                ctx.sway(ctx.at(i, offset), 0.004),   # 鼓摆小一点，太飘会显得不专业
                 beats * beat,
                 ctx.jitter(scale_velocity(velocity, ctx.vel_scale), 3),
             )
@@ -63,7 +63,7 @@ def build(drum_inst, ctx):
                 _add(
                     drum_inst,
                     _pitch(gm_key),
-                    start + (3.0 + offset) * beat,
+                    ctx.at(i, last_beat + offset),
                     0.12 * beat,
                     scale_velocity(90, ctx.vel_scale, 1.0 - 0.06 * step),
                 )
@@ -73,7 +73,7 @@ def build(drum_inst, ctx):
             _add(
                 drum_inst,
                 _pitch("hat"),
-                start + offset * beat,
+                ctx.at(i, offset),
                 0.05 * beat,
                 scale_velocity(ghost_velocity, ctx.vel_scale),
             )

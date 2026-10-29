@@ -133,6 +133,8 @@ def build_brief(title, desc, cfg, sections, resolved, project_name):
         f"| 调性 | `{cfg['key']}` |",
         f"| 和弦进行 | {' - '.join(resolved)} |",
         f"| BPM | {cfg['bpm']} |",
+        f"| 和声节奏 | {cfg.get('harmonic_rhythm') or '按风格默认'} |",
+        f"| Swing | {cfg.get('swing') or 0} |",
         f"| 时长 | 约 {total_seconds:.0f} 秒（{total_bars} 小节，{bar_seconds:.2f} 秒/小节） |",
         "",
         "## 段落",
@@ -196,6 +198,10 @@ def main(argv=None):
                         help="级数进行，逗号分隔，如 i,VI,III,VII")
     parser.add_argument("--sections", default=None, help="段落，如 intro:4,verse:8,chorus:8,outro:4")
     parser.add_argument("--duration", type=float, default=None, help="目标时长（秒），自动反推段落")
+    parser.add_argument("--swing", type=float, default=None,
+                        help="8 分音符摇摆 0~0.8（0=直拍，0.33≈三连音感，0.66≈shuffle）")
+    parser.add_argument("--harmonic-rhythm", type=float, default=None,
+                        help="每个和弦占几拍（4=一小节一个，2=半小节一个，8=两小节一个）")
     parser.add_argument("--root", default=os.path.join(_ROOT, "projects"), help="项目根目录")
     args = parser.parse_args(argv)
 
@@ -240,7 +246,13 @@ def main(argv=None):
         "time_sig": [4, 4],
         "sections": {name: bars for name, bars in sections},
         "velocity_base": 80,
+        "cues": [],              # 手动补充的音效时间点
     }
+    # 只在显式给了才写，否则留空 = 用该风格自己的默认值
+    if args.swing is not None:
+        cfg["swing"] = args.swing
+    if args.harmonic_rhythm is not None:
+        cfg["harmonic_rhythm"] = args.harmonic_rhythm
 
     os.makedirs(os.path.join(project_dir, "music", "output"), exist_ok=True)
 

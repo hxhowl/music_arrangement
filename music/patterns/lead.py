@@ -33,6 +33,11 @@ def _chord_tones(chord_name: str, semitones, start: int, count: int, high: int) 
 
 
 def build(lead_inst, ctx):
+    """主旋律：按和弦音级取音，逐音跟随和声节奏。
+
+    旧版每小节算一次音级表，半小节换和弦时后半小节会踩在旧和弦上。
+    现在每个音用它自己所在拍位的和弦 —— 换和弦的那一刻旋律自动跟着走。
+    """
     spec = ctx.style_spec["lead"]
     phrases = spec["phrases"]
     breath_every = spec["breath_every"]
@@ -43,35 +48,40 @@ def build(lead_inst, ctx):
 
     # seed 只换"从哪一句开始"，不改变句子本身，所以还是同一套风格的不同演奏
     offset = (ctx.seed % len(phrases)) if ctx.seed else 0
+    # 上一个音作为下一个音的"就近目标"，让旋律自身也连贯
+    last_pitch = None
 
     for i in range(ctx.bars):
-        name = ctx.chord_at(i)
-
-        if breath_every and i % breath_every == breath_every - 1:
-            plan = breath
-        else:
-            plan = phrases[(i // 2 + offset) % len(phrases)]
-
-        tones = _chord_tones(
-            name, ctx.chords[name], _anchor(name, ctx.chords[name], target, low, high),
-            TONE_COUNT, high,
-        )
-        start = ctx.bar_time(i)
-        played = []
+        plan = breath if (breath_every and i % breath_every == breath_every - 1) \
+            else phrases[(i // 2 + offset) % len(phrases)]
 
         for degree, offset_beats, beats in plan:
-            pitch = tones[degree]
+            name = ctx.chord_at_beat(i, offset_beats)
+            anchor = _anchor(
+                name, ctx.chords[name], last_pitch if last_pitch is not None else target,
+                low, high,
+            )
+            tones = _chord_tones(name, ctx.chords[name], anchor, TONE_COUNT, high)
+
+            pitch = tones[min(degree, len(tones) - 1)]
             while pitch > high:
                 pitch -= 12
-            played.append(pitch)
+            while pitch < low:
+                pitch += 12
+
+            # 旋律音可以跨过换和弦的位置（长音压过和声变化是正常写法），不切
+            start = ctx.sway(ctx.at(i, offset_beats))
+            end = start + beats * beat
+
             lead_inst.notes.append(
                 pretty_midi.Note(
                     velocity=ctx.jitter(scale_velocity(spec["velocity"], ctx.vel_scale)),
                     pitch=pitch,
-                    start=ctx.sway(start + offset_beats * beat),
-                    end=start + (offset_beats + beats) * beat,
+                    start=start,
+                    end=max(end, start + 0.05),
                 )
             )
-
-        # 登记本小节旋律占用的音高，让 pad 之类的铺底声部避开
-        ctx.occupy(i, played)
+            last_pitch = pitch
+            # 登记本小节旋律占用的音高，让 pad / arp 之类的声部避开
+            ctx.occupy(i, [pitch])
+            ctx.register_lead(start, end, pitch)

@@ -15,12 +15,14 @@ if _MUSIC_DIR not in sys.path:
 from core.arrange import TRACK_KEYS, get as get_arrange
 from core.config import load_config
 from core.context import Ctx
+from core.cues import write_cues
 from core.report import check
 from core.styles import resolve as resolve_style
 from core.theory import build_progression
 from patterns.arp import build as build_arp
 from patterns.bass import build as build_bass
 from patterns.chords import build as build_chords
+from patterns.counter import build as build_counter
 from patterns.drums import build as build_drums
 from patterns.lead import build as build_lead
 from patterns.pad import build as build_pad
@@ -31,13 +33,14 @@ RESOLUTION = 960
 
 # 轨定义：program 只是 GM 音色兜底，真实音色在 Logic 里换
 TRACKS = {
-    "chords": dict(program=0,  name="chords"),
-    "bass":   dict(program=33, name="bass"),
-    "drums":  dict(program=0,  name="drums", is_drum=True),
-    "perc":   dict(program=0,  name="perc", is_drum=True),
-    "arp":    dict(program=81, name="arp"),
-    "lead":   dict(program=80, name="lead"),
-    "pad":    dict(program=90, name="pad"),
+    "chords":  dict(program=0,  name="chords"),
+    "bass":    dict(program=33, name="bass"),
+    "drums":   dict(program=0,  name="drums", is_drum=True),
+    "perc":    dict(program=0,  name="perc", is_drum=True),
+    "arp":     dict(program=81, name="arp"),
+    "lead":    dict(program=80, name="lead"),
+    "counter": dict(program=42, name="counter"),
+    "pad":     dict(program=90, name="pad"),
 }
 
 assert set(TRACKS) == set(TRACK_KEYS), "compose.TRACKS 与 arrange.TRACK_KEYS 不一致"
@@ -109,6 +112,9 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
 
     # 主控力度：velocity_base 80 为基准，整体等比缩放
     master = cfg.get("velocity_base", 80) / 80.0
+    # 全曲统一的拍感参数（不跟风格走：swing 是"这首歌怎么摇"，不是"这套风格怎么打"）
+    swing = float(cfg.get("swing", 0.0) or 0.0)
+    harmonic_rhythm = cfg.get("harmonic_rhythm")
 
     # 段落可以各自指定 style；同一个 style 只解析一次
     tweaks = cfg.get("style_tweaks")
@@ -141,7 +147,7 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
             chords=section_chords,
             vel_scale=arr["vel"] * master,
             style=section_style,
-            style_spec=spec_cache[section_style],
+            style_spec=section_spec,
             density=arr["drums"],
             crash=arr["crash"],
             fill=arr["fill"],
@@ -149,6 +155,10 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
             rng=rng,
             occupied=occupied,
             lead_playing=bool(arr["lead"]),
+            # 和声节奏：config 显式指定优先，否则用该段风格自己的默认值
+            beats_per_chord=harmonic_rhythm or float(section_spec["chords"].get("beats", 4)),
+            beats_per_bar=num,
+            swing=swing,
         )
 
         if arr["chords"]:
@@ -164,6 +174,9 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
             build_perc(insts["perc"], ctx)
         if arr.get("arp"):
             build_arp(insts["arp"], ctx)
+        # counter 也要在 lead 之后（要读主旋律的空档），但要在 pad 之前（pad 避让它）
+        if arr.get("counter"):
+            build_counter(insts["counter"], ctx)
         if arr["pad"]:
             build_pad(insts["pad"], ctx)
 
@@ -185,10 +198,17 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
     with open(snapshot, "w", encoding="utf-8") as f:
         json.dump(saved, f, ensure_ascii=False, indent=2)
 
+    cue_file = write_cues(saved, out_dir, project_name, version)
+
     print(f"生成完成: {out_file}")
     print(f"参数快照: {snapshot}")
+    print(f"音效清单: {cue_file}")
+    rhythm_note = f"和声节奏={harmonic_rhythm:g}拍/和弦" if harmonic_rhythm \
+        else "和声节奏=按风格"
     print(f"[info] 风格={style}  调性={cfg['key']}  和弦={' - '.join(progression)}"
-          f"  seed={seed}" + ("（完全确定）" if seed == 0 else "（随机演奏）"))
+          f"  {rhythm_note}"
+          + (f"  swing={swing:g}" if swing else "")
+          + f"  seed={seed}" + ("（完全确定）" if seed == 0 else "（随机演奏）"))
     if used_sections:
         detail = "、".join(f"{s}={v}" for s, v in used_sections.items())
         print(f"[info] 段落换风格: {detail}")

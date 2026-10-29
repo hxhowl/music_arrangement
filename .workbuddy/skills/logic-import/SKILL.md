@@ -21,7 +21,7 @@ bash tools/check.sh projects/<dir>/music/output/<file>.mid projects/<dir>
 - **并入现有工程**：`File > Import > MIDI File…`，或把 `.mid` 拖到 Tracks 区
   ⚠️ 并入时不一定会改工程速度，先在文件里确认 BPM，再手动对齐或直接新建工程
 
-文件的固定形态：Format 1 / PPQ 960 / 7 轨，鼓与打击乐落 channel 10。
+文件的固定形态：Format 1 / PPQ 960 / 8 轨，鼓与打击乐落 channel 10。
 
 ## 音色
 
@@ -35,15 +35,20 @@ bash tools/check.sh projects/<dir>/music/output/<file>.mid projects/<dir>
 | perc | GM 打击乐 | 打击乐采样（沙锤/铃鼓/侧击） |
 | arp | 81 Lead 2 | Pluck / Alchemy 琶音 |
 | lead | 80 方波主音 | Alchemy / ES2 |
+| counter | 42 大提琴 | 大提琴 / 圆号 / 低音木管（**要比 lead 暗**，否则抢主旋律） |
 | pad | 90 Pad | Sculpture / Strings |
 
 换音色属于演奏层，不需要回改代码。
+
+`counter` 如果全程没音，不是 bug：它只在主旋律空档出声，副歌旋律铺满时自然不会出现。
 
 ## 验收检查表
 
 按顺序过一遍，任何一条不过就先别继续精修（判断标准以该项目的 `brief.md` 为准）：
 
-- [ ] 7 轨都在，没有空白轨
+- [ ] 8 轨都在，没有空白轨（`counter` 允许空，见上）
+- [ ] 和弦变化频率对得上 `config.json` 的 `harmonic_rhythm`（2 = 半小节就换）
+- [ ] 如果 `swing` 不为 0，鼓和贝斯的反拍应当同时"拖"一点，不是只有某一轨
 - [ ] BPM、拍号与 `brief.md` 一致
 - [ ] 和弦听起来与 `brief.md` 写的进行一致（例：F#m-D-A-E）
 - [ ] 段落边界与 `brief.md` 的音轨规划一致
@@ -62,6 +67,14 @@ bash tools/check.sh projects/<dir>/music/output/<file>.mid projects/<dir>
 2. 具体问题清单，每条按「**段落 + 乐器 + 现象**」写，并标注该改哪一层
    —— 例如“副歌的贝斯太密，跟底鼓打架” → `music/core/styles.py` 的 `bass.rhythm`
 3. 建议的下一步（回 `midi-iterate` 改哪一层 / 直接进 Logic 精修）
+
+## 音效轨（cues）
+
+`<name>-vN.cues.md` 里是 riser / impact / whoosh 的时间点，**不在 MIDI 里**：
+
+1. 新建一条**音频轨**，命名 `SFX`
+2. 按「小节.拍」摆采样（不要按秒 —— 改 BPM 时秒数会变，小节不会）
+3. impact 的 sub 部分建议高通到 40Hz 以上，别和底鼓抢
 
 ## 试听
 

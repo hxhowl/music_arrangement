@@ -55,9 +55,36 @@ class TestValidation:
         with pytest.raises(NotImplementedError, match="4/4"):
             load_config(str(make_project(time_sig=[3, 4])))
 
-    def test_swing_rejected(self, make_project):
-        with pytest.raises(NotImplementedError, match="swing"):
-            load_config(str(make_project(swing=0.2)))
+    def test_swing_accepted(self, make_project):
+        assert load_config(str(make_project(swing=0.3)))["swing"] == pytest.approx(0.3)
+
+    def test_swing_out_of_range(self, make_project):
+        with pytest.raises(ValueError, match="swing"):
+            load_config(str(make_project(swing=1.5)))
+
+    def test_swing_non_numeric(self, make_project):
+        with pytest.raises(ValueError, match="不是数字"):
+            load_config(str(make_project(swing="a lot")))
+
+    def test_harmonic_rhythm_accepted(self, make_project):
+        cfg = load_config(str(make_project(harmonic_rhythm=2)))
+        assert cfg["harmonic_rhythm"] == pytest.approx(2)
+
+    def test_default_harmonic_rhythm_is_none(self, make_project):
+        # 没写就用风格自己的默认值，不能偷偷写死成 4
+        assert load_config(str(make_project()))["harmonic_rhythm"] is None
+
+    def test_harmonic_rhythm_out_of_range(self, make_project):
+        with pytest.raises(ValueError, match="harmonic_rhythm"):
+            load_config(str(make_project(harmonic_rhythm=32)))
+
+    def test_cues_must_be_list(self, make_project):
+        with pytest.raises(ValueError, match="cues"):
+            load_config(str(make_project(cues={"bar": 3})))
+
+    def test_cues_item_needs_bar(self, make_project):
+        with pytest.raises(ValueError, match="bar"):
+            load_config(str(make_project(cues=[{"what": "riser"}])))
 
     def test_empty_sections(self, make_project):
         with pytest.raises(ValueError, match="sections"):

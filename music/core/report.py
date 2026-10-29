@@ -21,14 +21,19 @@ EXPECTED_PPQ = 960
 
 # 各轨建议音域（MIDI 音高）。超出只提示，不判失败 —— 有时是刻意的。
 ROLE_RANGE = {
-    "chords": (40, 72),
-    "bass":   (26, 52),
-    "pad":    (50, 88),
-    "arp":    (48, 92),
-    "lead":   (56, 92),
-    "drums":  (35, 60),
-    "perc":   (30, 90),
+    "chords":  (40, 72),
+    "bass":    (26, 52),
+    "pad":     (50, 88),
+    "arp":     (48, 92),
+    "lead":    (56, 92),
+    "counter": (45, 80),
+    "drums":   (35, 60),
+    "perc":    (30, 90),
 }
+
+# counter 是"机会性"声部：只在主旋律空着的地方出声，所以它沉默是正常的。
+# 不能按"编排开了就该有音符"去要求它，否则副歌满旋律时会天天误报。
+OPPORTUNISTIC = {"counter"}
 
 
 def _last_active_bar(sections, overrides: dict = None) -> dict:
@@ -122,6 +127,8 @@ def check(mid_path: str, config: dict = None, progression=None) -> bool:
         # 只有「按编排本该还在响」的轨提前收声才提示，避免把设计好的留白报成问题
         # 容差 2 小节：段落末尾留白（如 lead 每两小节才写一次）不算异常
         due = expected_last.get(inst.name, bars)
+        if inst.name in OPPORTUNISTIC:
+            continue
         if bars - last_bar > 2 and last_bar < due - 2:
             hints.append(
                 f"轨 {inst.name!r} 在 {last_bar:.1f} 小节后就没音了"
@@ -180,7 +187,7 @@ def check(mid_path: str, config: dict = None, progression=None) -> bool:
         from core.arrange import active_tracks
         expected_tracks = active_tracks(config["sections"], config.get("arrange"))
         actual = {inst.name for inst in pm.instruments if inst.notes}
-        missing = expected_tracks - actual
+        missing = expected_tracks - actual - OPPORTUNISTIC - OPPORTUNISTIC
         if missing:
             issues.append(f"以下轨按编排应有音符但实际为空: {sorted(missing)}")
 

@@ -18,7 +18,8 @@ AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预�
 
 1. **改动只作用于当前这首歌**：每首歌独立 `projects/<date>-<style>-<seq>/`，
    且必须有自己的 `config.json`。调歌用 config 里的 `bpm` / `key` / `progression` /
-   `style` / `sections` / `style_tweaks` / `arrange` / `seed`，
+   `style` / `sections` / `style_tweaks` / `arrange` / `seed` /
+   `harmonic_rhythm` / `swing` / `cues`，
    **不要改 `music/core/` 下的任何文件** —— 那是出厂默认库，改了会影响所有项目，
    历史版本再也生成不出来。只有"扩产线"（加新风格、新段落类型、新和声手法）才动代码，
    且必须说明影响面。
@@ -34,10 +35,16 @@ AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预�
 5. **和弦只有一个来源**：`music/core/theory.py` 的 `build_progression(key, 级数)`。
    调性写 `key`、进行写级数，不要写绝对和弦名。
 6. **MIDI 规范**：Format 1、PPQ 960、鼓与打击乐落 channel 10、
-   音轨名 chords/bass/drums/perc/arp/lead/pad、空轨不写入文件。
-7. **体检不通过不算完成**：`tools/compose.sh` 生成后自动体检，失败必须说明原因。
+   音轨名 chords/bass/drums/perc/arp/lead/counter/pad、空轨不写入文件。
+   **所有拍位必须走 `ctx.at(小节, 拍)`**：swing 和段落偏移都在里面，
+   自己写 `bar_time + offset * beat` 会让那条轨不跟着摇。
+7. **时间轴只认三样东西**：和声节奏（`ctx.chord_spans()`）、swing（`ctx.at()`）、
+   随机演奏（`ctx.jitter/sway`）。pattern 里不许出现"第 3 拍 = 某音"这类硬编码拍位判断。
+8. **体检不通过不算完成**：`tools/compose.sh` 生成后自动体检，失败必须说明原因。
    改代码后还要跑 `pytest`——它是这套东西唯一能自动证明"没改坏"的手段。
-8. **上下文最小化**：新窗口只加载 agents.md + 当前项目 brief.md/config.json，不继承历史聊天。
+9. **音效不做成 MIDI 轨**：riser / impact / whoosh 是采样，MIDI 只能触发合成器音色。
+   要交货就给 `<name>-vN.cues.md` 的时间点 + 让用户在 Logic 建 `SFX` 音频轨。
+10. **上下文最小化**：新窗口只加载 agents.md + 当前项目 brief.md/config.json，不继承历史聊天。
 
 ## 技能索引
 
@@ -69,6 +76,7 @@ pytest                                                    # 跑测试（改代�
 每次动作后输出：
 - 读了哪个 skill（或说明按本文件的哪条规则执行）
 - 生成/修改的文件清单
-- 风格 / 调性 / 和弦 / 版本号
+- 风格 / 调性 / 和弦 / 和声节奏 / 版本号
 - 体检结论（不通过要说明原因）
+- 音效清单路径（`<name>-vN.cues.md`）—— 这是需要人在 Logic 里接手的一步
 - 下一步不超过 3 个可选项

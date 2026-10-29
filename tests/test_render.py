@@ -147,3 +147,129 @@ class TestReport:
 
         check(str(broken), cfg, progression)
         assert "同音高" in capsys.readouterr().out
+
+
+class TestHarmonicRhythm:
+    def test_two_chords_per_bar(self, make_project):
+        project = make_project(harmonic_rhythm=2, style="pop")
+        path, _ = compose(str(project), "v1", report=False)[0]
+
+        bar = 4 * 60 / 100
+        chords = _notes(path, "chords")
+        first = [n for n in chords if n.start < bar]
+        # 半小节换和弦 → 一小节两组三和弦
+        assert len(first) == 6
+
+        starts = sorted({round((n.start) / bar, 2) for n in first})
+        assert 0.0 in starts and 0.5 in starts
+
+        def pcs(notes):
+            return {n.pitch % 12 for n in notes}
+
+        head = pcs([n for n in first if n.start < bar * 0.5])
+        tail = pcs([n for n in first if n.start >= bar * 0.5])
+        assert head != tail, "后半小节应该换了和弦"
+
+    def test_one_chord_per_two_bars(self, make_project):
+        # 单个长段落：段落切换会把和弦进行从头开始，测不出"两小节一个和弦"
+        project = make_project(harmonic_rhythm=8, style="pop", sections={"verse": 6})
+        path, _ = compose(str(project), "v1", report=False)[0]
+
+        bar = 4 * 60 / 100
+        chords = _notes(path, "chords")
+
+        def pcs(b):
+            return {n.pitch % 12 for n in chords if b * bar <= n.start < (b + 1) * bar}
+
+        assert pcs(0) == pcs(1), "8 拍一个和弦：前两小节同和弦"
+        assert pcs(1) != pcs(2), "第三小节才换"
+
+    def test_bass_follows_mid_bar_change(self, make_project):
+        plain = make_project(harmonic_rhythm=4)
+        half = make_project(harmonic_rhythm=2)
+
+        a = _notes(compose(str(plain), "v1", report=False)[0][0], "bass")
+        b = _notes(compose(str(half), "v1", report=False)[0][0], "bass")
+
+        bar = 4 * 60 / 100
+        # 一小节一个和弦时，第 3 拍还是同一个根音；半小节换和弦后应该变了
+        beat3_a = [n.pitch for n in a if bar * 0.7 <= n.start < bar * 0.8]
+        beat3_b = [n.pitch for n in b if bar * 0.7 <= n.start < bar * 0.8]
+        assert beat3_a and beat3_b
+        assert beat3_a[0] != beat3_b[0]
+
+
+class TestSwing:
+    def test_only_offbeats_move(self, make_project):
+        straight = make_project(swing=0)
+        swung = make_project(swing=0.6)
+
+        a = [round(n.start, 4) for n in
+             _notes(compose(str(straight), "v1", report=False)[0][0], "bass")]
+        b = [round(n.start, 4) for n in
+             _notes(compose(str(swung), "v1", report=False)[0][0], "bass")]
+
+        beat = 60 / 100
+        expected = 0.6 * beat / 6
+        shifts = [round(y - x, 4) for x, y in zip(a, b)]
+
+        assert set(shifts) <= {0.0, round(expected, 4)}
+        assert round(expected, 4) in shifts, "后半拍应该被推后"
+
+    def test_swing_keeps_bar_length(self, make_project):
+        project = make_project(swing=0.6, sections={"verse": 4})
+        path, _ = compose(str(project), "v1", report=False)[0]
+        bar = 4 * 60 / 100
+        assert abs(_load(path).get_end_time() / bar - 4) < 0.6
+
+
+class TestCounter:
+    def test_counter_only_in_gaps(self, make_project):
+        project = make_project(
+            sections={"verse": 2, "chorus": 4},
+            arrange={"chorus": {"counter": True}},
+        )
+        path, _ = compose(str(project), "v1", report=False)[0]
+        lead = _notes(path, "lead")
+        counter = _notes(path, "counter")
+
+        assert counter, "副歌开了 counter，应该有音"
+        for n in counter:
+            for m in lead:
+                assert not (m.start < n.end - 1e-6 and n.start < m.end - 1e-6), \
+                    "副旋律不能和主旋律同时响"
+
+    def test_counter_below_lead(self, make_project):
+        project = make_project(
+            sections={"verse": 2, "chorus": 2},
+            arrange={"chorus": {"counter": True}},
+        )
+        path, _ = compose(str(project), "v1", report=False)[0]
+        counter = [n.pitch for n in _notes(path, "counter")]
+        lead = [n.pitch for n in _notes(path, "lead")]
+        assert counter and max(counter) <= max(lead)
+
+    def test_pad_yields_to_counter(self, make_project):
+        # 副旋律也是"线"，pad 同音叠置会把它磨平
+        project = make_project(sections={"verse": 2})
+        path, _ = compose(str(project), "v1", report=False)[0]
+        assert _collisions(_notes(path, "counter"), _notes(path, "pad")) == 0
+
+
+class TestCueSheet:
+    def test_written_next_to_midi(self, make_project):
+        project = make_project(sections={"intro": 2, "verse": 2, "chorus": 4, "outro": 2})
+        path, _ = compose(str(project), "v1", report=False)[0]
+
+        cue = path.replace(".mid", ".cues.md")
+        assert (project / "music" / "output" / f"{project.name}-v1.cues.md").exists()
+
+        text = open(cue, encoding="utf-8").read()
+        assert "riser" in text and "impact" in text
+        assert "小节.拍" in text
+
+    def test_manual_cue_included(self, make_project):
+        project = make_project(cues=[{"bar": 3, "beat": 2, "what": "whoosh"}])
+        path, _ = compose(str(project), "v1", report=False)[0]
+        text = open(path.replace(".mid", ".cues.md"), encoding="utf-8").read()
+        assert "whoosh" in text and "3.2" in text

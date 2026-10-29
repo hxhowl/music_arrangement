@@ -13,12 +13,14 @@ description: 按项目 config.json 与风格库生成多轨 MIDI，自动带产�
 2. 需要动参数就改 `config.json`，**不要改 `music/core/config.py` 的默认值**
 3. `bash tools/compose.sh projects/<dir>`
 4. 体检不通过 → 先修，别当成完成
-5. 动过 `music/` 下任何文件，跑 `pytest`（59 项，<1 秒）
-6. 输出：mid 路径 + 风格/调性/和弦 + 体检结论 + 一条 Logic 导入提示
+5. 动过 `music/` 下任何文件，跑 `pytest`（75 项，<1 秒）
+6. 输出：mid 路径 + 风格/调性/和弦/和声节奏 + 体检结论 + 音效清单路径 + 一条 Logic 导入提示
 
 ## 产物约定
 - 输出 `projects/<dir>/music/output/<project>-vN.mid`（Format 1，PPQ 960）
 - 同时写 `<project>-vN.config.json` 参数快照（含实际 seed），保证这一版永久可复现
+- 同时写 `<project>-vN.cues.md` 音效时间点（riser / impact 放第几小节）。
+  **不要把这些音效做成 MIDI 轨**：它们是采样，MIDI 只能触发合成器音色
 - 版本号缺省自增，不覆盖旧版；要指定就 `bash tools/compose.sh <dir> v5`
 - 多版本：`bash tools/compose.sh <dir> v5 --takes 3` → v5/v6/v7，
   seed 从 config 的 `seed` 起递增（默认 0 → 1/2/3）
@@ -39,8 +41,13 @@ description: 按项目 config.json 与风格库生成多轨 MIDI，自动带产�
 - 和弦由 `theory.build_progression(key, 级数)` 推导，不要写绝对和弦名
 - MIDI：Format 1 / PPQ 960 / 鼓与打击乐 `is_drum=True` 落 channel 10 /
   没有音符的轨不写进文件（避免 Logic 出现空白轨）
-- 轨：chords / bass / drums / perc / arp / lead / pad，共 7 条
-- **lead 必须最后写之前**（arp 和 pad 要读它占用的音高做避让），compose 已保证顺序
+- 轨：chords / bass / drums / perc / arp / lead / counter / pad，共 8 条
+- **构建顺序在 compose 里定死**：chords → bass → drums → lead → perc → arp →
+  counter → pad。lead 先写（counter/arp/pad 要读它的空档与占用音高），
+  pad 最后写（避让所有声部）。不要调换
+- **拍位一律用 `ctx.at(i, 拍)`**，不要写 `bar_time(i) + 拍 * beat` —— 后者不跟 swing
+- **同一小节内的和声用 `ctx.chord_spans(i)`**（半小节换和弦），
+  单个拍位查和弦用 `ctx.chord_at_beat(i, 拍)`
 
 ## 加一套新风格
 
@@ -58,7 +65,7 @@ grep -A 20 '"pop": dict' music/core/styles.py   # 看一份完整样例
 
 ```python
 "pop_dark": dict(
-    chords=dict(octave=3, hold=0.8, velocity=56),
+    chords=dict(octave=3, hold=0.8, velocity=56, range=(48, 67), beats=4),
     bass=dict(octave=1, low=33, high=44, velocity=86,
               rhythm=[(0.0, 0.45, 1.0, 0), (2.0, 0.45, 0.9, 7)]),
     drums={
@@ -66,14 +73,22 @@ grep -A 20 '"pop": dict' music/core/styles.py   # 看一份完整样例
         "medium": [("kick", 0.0, 0.1, 88), ("snare", 2.0, 0.1, 74)],
         "full":   [("kick", 0.0, 0.1, 105), ("snare", 1.0, 0.1, 90)],
     },
-    lead=dict(target=69, range=(60, 83), breath_every=4,
+    lead=dict(target=69, range=(60, 83), velocity=84, breath_every=4,
               breath=((0, 0.0, 1.8), (2, 2.0, 1.8)),
               phrases=[[(0, 0.0, 0.8), (1, 1.0, 0.8)]]),
-    pad=dict(octave=3, intervals=(12, 16, 19), velocity=34, hold=0.98),
+    pad=dict(octave=3, intervals=(12, 16, 19), velocity=34, hold=0.98, duck=0.75),
     fill=FILL_STD, fill_every=4,
     ghost=dict(chance=0.3, velocity=28),
+    humanize=dict(velocity=3, sway=0.008),
+    perc=dict(gm="shaker", step=0.5, velocity=32, accents=(0, 2)),
+    arp=dict(range=(60, 79), step=0.25, velocity=42, octaves=2),
+    counter=dict(range=(55, 71), velocity=60,
+                 rhythm=[(1.5, 0.45, 3), (3.5, 0.45, 2)]),
 ),
 ```
+
+自检：把这段贴进 `STYLES` 后跑 `python -c "from core.styles import resolve; resolve('pop_dark')"`
+—— `_check_shapes` 会把缺字段/越界项当场指出来。
 
 字段含义：
 
@@ -82,6 +97,7 @@ grep -A 20 '"pop": dict' music/core/styles.py   # 看一份完整样例
 | `chords.hold` | 和弦占小节的比例（0.35 断奏 / 0.99 连绵） |
 | `chords.range` | 和弦声部进行的工作区间（voice leading 在这个范围内选音） |
 | `chords.seventh` | `True` 时用七和弦（注意：换和弦名，如 Am → Am7） |
+| `chords.beats` | 每个和弦占几拍（4=一小节一个，2=半小节一个，8=两小节一个） |
 | `bass.rhythm` | `(起始拍, 时长拍, accent, 半音偏移)`，偏移 7=五度、12=八度 |
 | `drums[档]` | `(GM 键名, 起始拍, 时长拍, 基准力度)` |
 | `lead.range` | 旋律音区 `(最低音, 最高音)` |
@@ -96,6 +112,7 @@ grep -A 20 '"pop": dict' music/core/styles.py   # 看一份完整样例
 | `pad.duck` | 有旋律时 pad 压低的比例（0.7 = 压到七成） |
 | `perc` | `dict(gm=鼓件, step=间隔拍, velocity=力度, accents=重拍位置)` |
 | `arp` | `dict(range=(最低,最高), step=间隔拍, velocity=力度, octaves=跨八度)` |
+| `counter` | `dict(range=(最低,最高), velocity=力度, rhythm=[(起始拍, 时长拍, 音级)])` 副旋律 |
 
 - 三个密度档（light/medium/full）都要有，否则跑该密度的段落会报错
   （`none` 不用定义：`ARRANGE` 里写 `drums=None` 时整段不出鼓）
@@ -110,8 +127,10 @@ grep -A 20 '"pop": dict' music/core/styles.py   # 看一份完整样例
 | `未知风格 'xxx'` | 风格没在 `music/core/styles.py` 的 `STYLES` 里定义 |
 | `无法解析级数 'x'` | `progression` 用了非罗马数字，或写了绝对和弦名 |
 | `风格 'x' 没有定义鼓密度 'y'` | 新风格缺 density 档 |
-| `patterns 目前只实现 4/4` | `time_sig` 不是 4/4 |
-| `swing 尚未实现` | config 里不要写 `swing` |
+| `patterns 目前只实现 4/4` | `time_sig` 不是 4/4（拍位是按 4 拍写死的，加 3/4 要重写风格数据） |
+| `harmonic_rhythm=… 不合理` | 每和弦 0.5~16 拍，常用 2 / 4 / 8 |
+| `swing=… 超出范围` | 0~0.8 |
+| `config.cues 每项至少要有 bar` | `cues` 是 `[{"bar": 21, "beat": 3, "what": "whoosh"}]` |
 
 ## 边界
 - 不自动 bounce 音频；不做人声

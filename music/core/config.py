@@ -26,6 +26,9 @@ DEFAULT_CONFIG = {
     "style_tweaks": {},               # 只对这首歌微调风格参数（不污染同风格其它项目）
     "arrange": {},                    # 只对这首歌覆盖段落编排
     "seed": 0,                        # 0 = 完全确定；>0 = 力度/装饰音的随机演奏
+    "swing": 0.0,                     # 8 分音符摇摆：0=直拍，0.33≈三连音感，0.66≈shuffle
+    "harmonic_rhythm": None,          # 每个和弦占几拍；None = 用该段风格自己的默认值
+    "cues": [],                       # 手动补充的音效时间点
     "time_sig": (4, 4),
     "sections": {
         "intro": 4,
@@ -118,7 +121,33 @@ def _validate(cfg: dict) -> None:
     parse_key(cfg["key"])
     build_progression(cfg["key"], cfg["progression"])
 
-    if cfg.get("swing", 0.0):
-        raise NotImplementedError(
-            "swing 尚未实现（patterns 没有应用 groove 偏移），请去掉这个字段"
+    swing = cfg.get("swing", 0.0) or 0.0
+    try:
+        swing = float(swing)
+    except (TypeError, ValueError):
+        raise ValueError(f"swing={cfg.get('swing')!r} 不是数字")
+    if not 0 <= swing <= 0.8:
+        raise ValueError(
+            f"swing={swing:g} 超出范围（0 = 直拍，0.33 左右是三连音感，0.8 已经几乎听不出拍子）"
         )
+    cfg["swing"] = swing
+
+    rhythm = cfg.get("harmonic_rhythm")
+    if rhythm is not None:
+        try:
+            rhythm = float(rhythm)
+        except (TypeError, ValueError):
+            raise ValueError(f"harmonic_rhythm={cfg.get('harmonic_rhythm')!r} 不是数字")
+        if not 0.5 <= rhythm <= 16:
+            raise ValueError(
+                f"harmonic_rhythm={rhythm:g} 不合理（每和弦 0.5~16 拍；"
+                f"4 = 一小节一个和弦，2 = 半小节一个，8 = 两小节一个）"
+            )
+        cfg["harmonic_rhythm"] = rhythm
+
+    cues = cfg.get("cues") or []
+    if not isinstance(cues, list):
+        raise ValueError("config.cues 必须是数组")
+    for item in cues:
+        if not isinstance(item, dict) or "bar" not in item:
+            raise ValueError(f"config.cues 每项至少要有 bar 字段，收到 {item!r}")

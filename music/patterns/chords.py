@@ -3,34 +3,40 @@ import pretty_midi
 from core.theory import chord_root_pitch, scale_velocity, voice_lead
 
 
-def build(chord_inst, ctx):
-    """和弦声部：按 voice leading 排列，不再每小节原位硬跳。
+def _pcs(ctx, name):
+    root_pc = chord_root_pitch(name, 0) % 12
+    return [(root_pc + semi) % 12 for semi in ctx.chords[name]]
 
-    原位三和弦连续排列时内声部会大跳（听起来"块状"）；这里让每个声部
-    找离上一小节最近的八度，声部进行会平滑很多。
+
+def build(chord_inst, ctx):
+    """和弦声部：按 voice leading 排列，并跟随和声节奏。
+
+    两件事：
+      1) 每个声部找离上一个和弦最近的八度，不再原位硬跳（旧版听起来"块状"）
+      2) 按 `ctx.chord_spans()` 分块 —— 半小节换和弦时，同一小节会有两组音
     """
     spec = ctx.style_spec["chords"]
-    bar_len = ctx.bar_len
     low, high = spec["range"]
+    hold = float(spec["hold"])
+    beat = ctx.beat
     previous = None
 
     for i in range(ctx.bars):
-        name = ctx.chord_at(i)
-        root_pc = chord_root_pitch(name, 0) % 12
-        pcs = [(root_pc + semi) % 12 for semi in ctx.chords[name]]
+        for offset, span_beats, name in ctx.chord_spans(i):
+            voicing = voice_lead(_pcs(ctx, name), previous, low, high)
+            previous = voicing or previous
 
-        voicing = voice_lead(pcs, previous, low, high)
-        previous = voicing or previous
+            start = ctx.sway(ctx.at(i, offset))
+            end = start + span_beats * beat * hold
 
-        start = ctx.bar_time(i)
-        end = start + bar_len * spec["hold"]
-
-        for pitch in voicing:
-            chord_inst.notes.append(
-                pretty_midi.Note(
-                    velocity=ctx.jitter(scale_velocity(spec["velocity"], ctx.vel_scale)),
-                    pitch=pitch,
-                    start=ctx.sway(start),
-                    end=end,
+            for pitch in voicing:
+                chord_inst.notes.append(
+                    pretty_midi.Note(
+                        velocity=ctx.jitter(
+                            scale_velocity(spec["velocity"], ctx.vel_scale)
+                        ),
+                        pitch=pitch,
+                        start=start,
+                        end=end,
+                    )
                 )
-            )

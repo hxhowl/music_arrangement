@@ -11,7 +11,7 @@ class TestResolve:
             spec = resolve(name)
             assert set(spec) >= {
                 "chords", "bass", "drums", "lead", "pad",
-                "fill", "fill_every", "ghost", "humanize", "perc", "arp",
+                "fill", "fill_every", "ghost", "humanize", "perc", "arp", "counter", "counter",
             }
 
     def test_tweaks_do_not_touch_global(self):

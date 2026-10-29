@@ -19,14 +19,12 @@ def build(perc_inst, ctx):
     step = float(spec["step"])
     accents = set(int(a) for a in spec["accents"])
     pitch = _pitch(spec["gm"])
-    beat = ctx.beat
 
-    steps = int(round(4 / step))
+    steps = max(1, int(round(ctx.beats_per_bar / step)))
     for i in range(ctx.bars):
-        start = ctx.bar_time(i)
         for index in range(steps):
             accent = 1.0 if index in accents else 0.72
-            when = ctx.sway(start + index * step * beat, 0.005)
+            when = ctx.sway(ctx.at(i, index * step), 0.005)
             perc_inst.notes.append(
                 pretty_midi.Note(
                     velocity=ctx.jitter(

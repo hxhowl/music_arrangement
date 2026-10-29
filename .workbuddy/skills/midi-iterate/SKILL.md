@@ -29,6 +29,11 @@ description: 用户对已生成版本有意见时（鼓太弱、太吵、想更�
 | 太快 / 太慢 | `bpm` | |
 | 换个调 | `key` | 和弦会跟着变，不用改和弦名 |
 | 换和弦进行 | `progression` | 级数写法，如 `["i","VI","III","VII"]` |
+| 和弦换得太慢 / 太赶 | `harmonic_rhythm` | 每和弦几拍：2=半小节、4=一小节、8=两小节 |
+| 太"方"、想摇一点 | `swing` | 0=直拍，0.33≈三连音感，0.66≈shuffle |
+| 副歌缺个对答声部 | `arrange.chorus.counter` | `true` 才在副歌开副旋律（默认关，让位给主旋律） |
+| 副旋律太吵 / 太高 | `style_tweaks.counter.velocity` / `.range` | |
+| 想在某处加 riser / whoosh | `cues` | `[{"bar": 21, "beat": 3, "what": "whoosh"}]` |
 | 整体气质不对（太摇滚 / 想更空） | `style` | 整套换掉（影响全曲） |
 | 只有某一段想要另一种感觉 | `arrange.<段>.style` | 例如副歌 pop、结尾 playful |
 | 某一轨太吵 / 太弱 | `style_tweaks.<轨>.velocity` | chords / bass / pad / lead |
@@ -56,7 +61,15 @@ description: 用户对已生成版本有意见时（鼓太弱、太吵、想更�
   "style_tweaks": {
     "bass": { "velocity": 78 },
     "lead": { "breath_every": 8 }
-  }
+  },
+
+  // 半小节换和弦 + 轻微摇摆
+  "harmonic_rhythm": 2,
+  "swing": 0.33,
+
+  // 副歌加一条副旋律，并在第 21 小节补个 riser
+  "arrange": { "chorus": { "counter": true } },
+  "cues": [{ "bar": 21, "beat": 1, "what": "riser", "why": "进副歌前推一把" }]
 }
 ```
 
@@ -82,6 +95,12 @@ description: 用户对已生成版本有意见时（鼓太弱、太吵、想更�
 - 加一种新的和声手法 / 织体写法 → 新 pattern 或新字段
 
 这类改动属于"扩产线"，不是"调这首歌"。做完要在 `decisions.md` 或 commit message 里写清影响面。
+
+## 关于音效
+
+用户说"想更有冲击力 / 想要转场效果"时，**不要去做音效轨**：
+riser / impact / whoosh 是采样，MIDI 只能触发合成器音色。
+正确做法是看 `<name>-vN.cues.md`，在 `cues` 里补点位，并告诉用户在 Logic 建 `SFX` 音频轨。
 
 ## 纪律
 - 不改用户已在 Logic 里手调的自动化（那些只存在于工程文件里）
