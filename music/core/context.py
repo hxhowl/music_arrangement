@@ -1,5 +1,5 @@
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -24,6 +24,9 @@ class Ctx:
     fill: bool = True           # 是否每 4 小节加过门
     seed: int = 0
     rng: random.Random | None = None   # seed=0 时为 None，输出完全确定
+    # 主旋律已经占用的音高（按小节）：铺底声部据此让位，避免同音高同时响
+    occupied: dict = field(default_factory=dict)
+    lead_playing: bool = False
 
     @property
     def beat(self) -> float:
@@ -75,3 +78,10 @@ class Ctx:
         if self.rng is None:
             return options[0]
         return options[self.rng.randrange(len(options))]
+
+    def occupy(self, bar_index: int, pitches) -> None:
+        """登记这一段已被主旋律占用的音高。"""
+        self.occupied.setdefault(bar_index, set()).update(pitches)
+
+    def is_occupied(self, bar_index: int, pitch: int) -> bool:
+        return pitch in self.occupied.get(bar_index, ())

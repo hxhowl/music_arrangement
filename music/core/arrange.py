@@ -12,23 +12,23 @@
 
 from core.styles import STYLES
 
-TRACK_KEYS = ("chords", "bass", "drums", "lead", "pad")
+TRACK_KEYS = ("chords", "bass", "drums", "perc", "arp", "lead", "pad")
 DRUM_LEVELS = (None, "light", "medium", "full")
 
 # drums: None=不出鼓 / "light" / "medium" / "full"
 # style: None=用整首歌的 style；也可写 "playful" 让这一段换风格
 # crash: 段落起点是否加吊镲；fill: 是否按 fill_every 加过门
 ARRANGE = {
-    "intro":  dict(chords=True, bass=False, drums=None,     lead=False, pad=True,
-                   vel=0.70, crash=False, fill=False, style=None),
-    "verse":  dict(chords=True, bass=True,  drums="medium", lead=False, pad=True,
-                   vel=0.85, crash=False, fill=True,  style=None),
-    "chorus": dict(chords=True, bass=True,  drums="full",   lead=True,  pad=True,
-                   vel=1.00, crash=True,  fill=True,  style=None),
-    "bridge": dict(chords=True, bass=True,  drums="light",  lead=False, pad=True,
-                   vel=0.80, crash=False, fill=True,  style=None),
-    "outro":  dict(chords=True, bass=False, drums=None,     lead=False, pad=True,
-                   vel=0.65, crash=False, fill=False, style=None),
+    "intro":  dict(chords=True, bass=False, drums=None,     perc=False, arp=True,
+                   lead=False, pad=True, vel=0.70, crash=False, fill=False, style=None),
+    "verse":  dict(chords=True, bass=True,  drums="medium", perc=True,  arp=False,
+                   lead=False, pad=True, vel=0.85, crash=False, fill=True,  style=None),
+    "chorus": dict(chords=True, bass=True,  drums="full",   perc=True,  arp=True,
+                   lead=True,  pad=True, vel=1.00, crash=True,  fill=True,  style=None),
+    "bridge": dict(chords=True, bass=True,  drums="light",  perc=False, arp=True,
+                   lead=False, pad=True, vel=0.80, crash=False, fill=True,  style=None),
+    "outro":  dict(chords=True, bass=False, drums=None,     perc=False, arp=False,
+                   lead=False, pad=True, vel=0.65, crash=False, fill=False, style=None),
 }
 
 
@@ -67,7 +67,7 @@ def get(section: str, overrides: dict = None) -> dict:
             f"段落 {section!r} 的 drums={arr['drums']!r} 不合法，"
             f"只能是 None / light / medium / full"
         )
-    for flag in ("crash", "fill"):
+    for flag in ("crash", "fill", "perc", "arp"):
         if not isinstance(arr[flag], bool):
             raise ValueError(f"段落 {section!r} 的 {flag}={arr[flag]!r} 必须是 true/false")
     if arr["style"] is not None and arr["style"] not in STYLES:

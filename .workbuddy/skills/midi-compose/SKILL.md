@@ -13,7 +13,8 @@ description: 按项目 config.json 与风格库生成多轨 MIDI，自动带产�
 2. 需要动参数就改 `config.json`，**不要改 `music/core/config.py` 的默认值**
 3. `bash tools/compose.sh projects/<dir>`
 4. 体检不通过 → 先修，别当成完成
-5. 输出：mid 路径 + 风格/调性/和弦 + 体检结论 + 一条 Logic 导入提示
+5. 动过 `music/` 下任何文件，跑 `pytest`（59 项，<1 秒）
+6. 输出：mid 路径 + 风格/调性/和弦 + 体检结论 + 一条 Logic 导入提示
 
 ## 产物约定
 - 输出 `projects/<dir>/music/output/<project>-vN.mid`（Format 1，PPQ 960）
@@ -36,8 +37,10 @@ description: 按项目 config.json 与风格库生成多轨 MIDI，自动带产�
 - 风格参数一律从 `ctx.style_spec` 取，**不要在 pattern 里再 `resolve_style`**
 - 旋律按**和弦音级**取音（`music/patterns/lead.py` 的 `_chord_tones`），不要写死半音数
 - 和弦由 `theory.build_progression(key, 级数)` 推导，不要写绝对和弦名
-- MIDI：Format 1 / PPQ 960 / 鼓 `is_drum=True` 落 channel 10 /
+- MIDI：Format 1 / PPQ 960 / 鼓与打击乐 `is_drum=True` 落 channel 10 /
   没有音符的轨不写进文件（避免 Logic 出现空白轨）
+- 轨：chords / bass / drums / perc / arp / lead / pad，共 7 条
+- **lead 必须最后写之前**（arp 和 pad 要读它占用的音高做避让），compose 已保证顺序
 
 ## 加一套新风格
 
@@ -77,6 +80,8 @@ grep -A 20 '"pop": dict' music/core/styles.py   # 看一份完整样例
 | 字段 | 含义 |
 |---|---|
 | `chords.hold` | 和弦占小节的比例（0.35 断奏 / 0.99 连绵） |
+| `chords.range` | 和弦声部进行的工作区间（voice leading 在这个范围内选音） |
+| `chords.seventh` | `True` 时用七和弦（注意：换和弦名，如 Am → Am7） |
 | `bass.rhythm` | `(起始拍, 时长拍, accent, 半音偏移)`，偏移 7=五度、12=八度 |
 | `drums[档]` | `(GM 键名, 起始拍, 时长拍, 基准力度)` |
 | `lead.range` | 旋律音区 `(最低音, 最高音)` |
@@ -88,6 +93,9 @@ grep -A 20 '"pop": dict' music/core/styles.py   # 看一份完整样例
 | `fill_every` | 每 N 小节加一次过门 |
 | `ghost` | 反拍轻踩镲 `dict(chance=概率, velocity=力度)`，chance=0 表示不加 |
 | `humanize` | `dict(velocity=力度扰动, sway=时值摆动秒)`，只在 seed>0 生效；鼓用固定更小的量 |
+| `pad.duck` | 有旋律时 pad 压低的比例（0.7 = 压到七成） |
+| `perc` | `dict(gm=鼓件, step=间隔拍, velocity=力度, accents=重拍位置)` |
+| `arp` | `dict(range=(最低,最高), step=间隔拍, velocity=力度, octaves=跨八度)` |
 
 - 三个密度档（light/medium/full）都要有，否则跑该密度的段落会报错
   （`none` 不用定义：`ARRANGE` 里写 `drums=None` 时整段不出鼓）

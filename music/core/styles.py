@@ -8,17 +8,19 @@
 （见 resolve），不要直接改这里 —— 改这里会影响所有同风格项目。
 
 数据结构：
-  chords : octave / hold(占小节比例) / velocity
+  chords : octave / hold(占小节比例) / velocity / range=(最低, 最高) / seventh(是否用七和弦)
   bass   : octave / low / high / velocity / rhythm=[(起始拍, 时长拍, accent, 半音偏移)]
   drums  : {密度档: [(GM键名, 起始拍, 时长拍, 基准力度)]}
   lead   : target(中心音区) / range=(最低音, 最高音) / breath_every(每 N 小节呼吸，0=不呼吸)
            breath=[(音级, 起始拍, 时长拍)] 呼吸小节用的长音
            phrases=[[(音级, 起始拍, 时长拍)]]，音级是"和弦内第几个音"
-  pad    : octave / intervals / velocity / hold
+  pad    : octave / intervals / velocity / hold / duck(有旋律时压低的比例)
   fill   : [(GM键名, 起始拍偏移)] 过门音符，铺满第 4 拍
   fill_every : 每 N 小节加一次过门
   ghost  : dict(chance=概率, velocity=力度) 反拍补的轻踩镲；chance=0 表示不加
   humanize : dict(velocity=力度扰动幅度, sway=时值摆动秒数)，只在 seed>0 时生效
+  perc   : dict(gm=鼓件, step=间隔拍, velocity=力度, accents=重拍位置)
+  arp    : dict(range=(最低, 最高), step=间隔拍, velocity=力度, octaves=跨几个八度)
 """
 
 import copy
@@ -43,7 +45,7 @@ def _quarters(gm_key: str, base: int, length: float = 0.06):
 STYLES = {
     # 电影感：长音铺底、鼓只做心跳、旋律大跳
     "cinematic": dict(
-        chords=dict(octave=3, hold=0.99, velocity=46),
+        chords=dict(octave=3, hold=0.99, velocity=46, range=(48, 67)),
         bass=dict(octave=1, low=33, high=44, velocity=74,
                   rhythm=[(0.0, 3.9, 1.0, 0)]),
         drums={
@@ -54,15 +56,17 @@ STYLES = {
         },
         lead=dict(target=69, range=(60, 83), velocity=84, breath_every=0, breath=BREATH_STD,
                   phrases=[[(0, 0.0, 1.9), (2, 2.0, 1.9)]]),
-        pad=dict(octave=3, intervals=(12, 19, 24), velocity=42, hold=1.0),
+        pad=dict(octave=3, intervals=(12, 19, 24), velocity=42, hold=1.0, duck=0.72),
         fill=FILL_STD, fill_every=4,
         ghost=dict(chance=0.0, velocity=28),
+        perc=dict(gm="shaker", step=1.0, velocity=32, accents=(0,)),
+        arp=dict(range=(60, 79), step=0.5, velocity=38, octaves=2),
         humanize=dict(velocity=3, sway=0.008),   # 心跳鼓不加装饰音
     ),
 
     # 流行：标准 4/4，贝斯八分推进到五度
     "pop": dict(
-        chords=dict(octave=3, hold=0.88, velocity=58),
+        chords=dict(octave=3, hold=0.88, velocity=58, range=(48, 67)),
         bass=dict(octave=1, low=33, high=44, velocity=88,
                   rhythm=[(0.0, 0.45, 1.0, 0), (1.0, 0.45, 0.85, 0),
                           (2.0, 0.45, 1.0, 0), (2.5, 0.4, 0.75, 7),
@@ -79,15 +83,17 @@ STYLES = {
                       [(0, 0.0, 0.8), (1, 1.0, 0.8), (2, 2.0, 0.8), (1, 3.0, 0.8)],
                       [(0, 0.0, 0.8), (2, 1.0, 0.8), (3, 2.0, 0.8), (2, 3.0, 0.8)],
                   ]),
-        pad=dict(octave=3, intervals=(12, 16, 19), velocity=34, hold=0.98),
+        pad=dict(octave=3, intervals=(12, 16, 19), velocity=34, hold=0.98, duck=0.75),
         fill=FILL_STD, fill_every=4,
         ghost=dict(chance=0.35, velocity=28),
+        perc=dict(gm="tambourine", step=0.5, velocity=40, accents=(1, 3)),
+        arp=dict(range=(60, 79), step=0.25, velocity=42, octaves=2),
         humanize=dict(velocity=3, sway=0.008),
     ),
 
     # 慵懒：切分贝斯、半拍鼓、短句重复
     "lofi": dict(
-        chords=dict(octave=3, hold=0.72, velocity=52),
+        chords=dict(octave=3, hold=0.72, velocity=52, range=(48, 67), seventh=True),
         bass=dict(octave=1, low=33, high=44, velocity=80,
                   rhythm=[(0.0, 0.7, 1.0, 0), (0.75, 0.4, 0.6, 0),
                           (1.5, 0.5, 0.85, 0), (2.5, 0.6, 0.9, 7)]),
@@ -103,15 +109,17 @@ STYLES = {
                       [(0, 0.0, 0.55), (1, 0.75, 0.45), (1, 1.5, 0.45), (2, 2.5, 0.9)],
                       [(0, 0.0, 0.55), (2, 0.5, 0.45), (1, 1.25, 0.45), (3, 2.5, 0.9)],
                   ]),
-        pad=dict(octave=3, intervals=(12, 19), velocity=32, hold=0.92),
+        pad=dict(octave=3, intervals=(12, 19), velocity=32, hold=0.92, duck=0.75),
         fill=FILL_STD, fill_every=4,
         ghost=dict(chance=0.35, velocity=24),
+        perc=dict(gm="shaker", step=0.5, velocity=30, accents=(0, 2)),
+        arp=dict(range=(57, 76), step=0.5, velocity=36, octaves=2),
         humanize=dict(velocity=3, sway=0.008),
     ),
 
     # 无厘头：断奏和弦、错位重音、大跳旋律
     "playful": dict(
-        chords=dict(octave=3, hold=0.35, velocity=66),
+        chords=dict(octave=3, hold=0.35, velocity=66, range=(50, 69)),
         # 贝斯音区比其它风格低一个窗口：这套律动有 +12 的八度跳，
         # 窗口太高会把贝斯顶到 G3，和 chords 轨撞在一起
         bass=dict(octave=1, low=26, high=38, velocity=92,
@@ -131,9 +139,11 @@ STYLES = {
                        (3, 2.0, 0.4), (2, 2.5, 0.4)],
                       [(3, 0.0, 0.4), (1, 0.5, 0.4), (0, 1.0, 0.6), (2, 2.5, 0.8)],
                   ]),
-        pad=dict(octave=3, intervals=(12, 19, 24), velocity=28, hold=0.9),
+        pad=dict(octave=3, intervals=(12, 19, 24), velocity=28, hold=0.9, duck=0.7),
         fill=FILL_STD, fill_every=4,
         ghost=dict(chance=0.45, velocity=30),
+        perc=dict(gm="rim", step=0.5, velocity=36, accents=(1,)),
+        arp=dict(range=(64, 84), step=0.25, velocity=48, octaves=2),
         humanize=dict(velocity=3, sway=0.008),
     ),
 }
@@ -244,6 +254,32 @@ def _check_shapes(spec: dict) -> None:
         raise ValueError(f"ghost 应为 {{'chance': 0~1, 'velocity': 1~127}}，收到 {ghost!r}")
     if not 0 <= float(ghost.get("chance", 0)) <= 1:
         raise ValueError(f"ghost.chance={ghost.get('chance')!r} 应在 0~1")
+
+    chords = spec["chords"]
+    low, high = chords["range"]
+    if not low < high:
+        raise ValueError(f"chords.range={chords['range']!r} 不合法，应为 (最低音, 最高音)")
+
+    pad = spec["pad"]
+    if not 0 < float(pad.get("duck", 1.0)) <= 1:
+        raise ValueError(f"pad.duck={pad.get('duck')!r} 应在 (0, 1] 之间（有旋律时压低的比例）")
+
+    perc = spec["perc"]
+    if perc["gm"] not in GM_DRUM:
+        raise ValueError(f"perc.gm={perc['gm']!r} 不是已知鼓件")
+    if not 0 < float(perc["step"]) <= 4:
+        raise ValueError(f"perc.step={perc['step']!r} 应在 (0, 4] 拍")
+    if not 1 <= int(perc["velocity"]) <= 127:
+        raise ValueError(f"perc.velocity={perc['velocity']!r} 应在 1~127")
+
+    arp = spec["arp"]
+    low, high = arp["range"]
+    if not low < high:
+        raise ValueError(f"arp.range={arp['range']!r} 不合法")
+    if not 0 < float(arp["step"]) <= 4:
+        raise ValueError(f"arp.step={arp['step']!r} 应在 (0, 4] 拍")
+    if int(arp.get("octaves", 2)) < 1:
+        raise ValueError(f"arp.octaves={arp.get('octaves')!r} 至少为 1")
 
     humanize = spec["humanize"]
     if not isinstance(humanize, dict) or set(humanize) - {"velocity", "sway"}:

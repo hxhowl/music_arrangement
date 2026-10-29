@@ -21,7 +21,7 @@ bash tools/check.sh projects/<dir>/music/output/<file>.mid projects/<dir>
 - **并入现有工程**：`File > Import > MIDI File…`，或把 `.mid` 拖到 Tracks 区
   ⚠️ 并入时不一定会改工程速度，先在文件里确认 BPM，再手动对齐或直接新建工程
 
-文件的固定形态：Format 1 / PPQ 960 / 5 轨，鼓轨落 channel 10。
+文件的固定形态：Format 1 / PPQ 960 / 7 轨，鼓与打击乐落 channel 10。
 
 ## 音色
 
@@ -32,6 +32,8 @@ bash tools/check.sh projects/<dir>/music/output/<file>.mid projects/<dir>
 | chords | 0 原声钢琴 | Alchemy（Pad 类）/ Piano |
 | bass | 33 电贝斯（指弹） | Studio Bass / 合成贝斯 |
 | drums | GM 鼓组 | Drum Machine Designer |
+| perc | GM 打击乐 | 打击乐采样（沙锤/铃鼓/侧击） |
+| arp | 81 Lead 2 | Pluck / Alchemy 琶音 |
 | lead | 80 方波主音 | Alchemy / ES2 |
 | pad | 90 Pad | Sculpture / Strings |
 
@@ -41,7 +43,7 @@ bash tools/check.sh projects/<dir>/music/output/<file>.mid projects/<dir>
 
 按顺序过一遍，任何一条不过就先别继续精修（判断标准以该项目的 `brief.md` 为准）：
 
-- [ ] 5 轨都在，没有空白轨
+- [ ] 7 轨都在，没有空白轨
 - [ ] BPM、拍号与 `brief.md` 一致
 - [ ] 和弦听起来与 `brief.md` 写的进行一致（例：F#m-D-A-E）
 - [ ] 段落边界与 `brief.md` 的音轨规划一致

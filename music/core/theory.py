@@ -39,6 +39,10 @@ GM_DRUM = {
     "tom_high": 50,
     "crash": 49,
     "ride": 51,
+    "rim": 37,          # 侧击
+    "tambourine": 54,   # 铃鼓
+    "conga": 62,        # 康加
+    "shaker": 82,       # 沙锤
 }
 
 
@@ -107,13 +111,13 @@ def scale_pitch_classes(key: str):
     return [(tonic + semi) % 12 for semi in SCALES[mode]]
 
 
-def degree_to_chord(key: str, degree: str):
+def degree_to_chord(key: str, degree: str, seventh: bool = False):
     """级数 -> (和弦名, 相对根音的半音列表)。
 
     ('Am', 'i')  -> ('Am', [0, 3, 7])
     ('Am', 'VI') -> ('F',  [0, 4, 7])
     ('Dm', 'VI') -> ('Bb', [0, 4, 7])
-    ('C',  'vi') -> ('Am', [0, 3, 7])
+    ('C',  'vi', seventh=True) -> ('Am7', [0, 3, 7, 10])
     """
     deg = DEGREES.get(str(degree).strip().upper())
     if deg is None:
@@ -126,6 +130,7 @@ def degree_to_chord(key: str, degree: str):
     root_pc = pcs[deg]
     third = (pcs[(deg + 2) % 7] - root_pc) % 12
     fifth = (pcs[(deg + 4) % 7] - root_pc) % 12
+    seventh_interval = (pcs[(deg + 6) % 7] - root_pc) % 12
 
     if (third, fifth) == (3, 7):
         suffix = "m"
@@ -141,10 +146,16 @@ def degree_to_chord(key: str, degree: str):
     # 按调号的字母顺序拼写：D 小调的 VI 级是 Bb，不是 A#
     letter = LETTERS[(root_letter + deg) % 7]
     name = spell_pitch(root_pc, letter) + suffix
-    return name, [0, third, fifth]
+
+    intervals = [0, third, fifth]
+    if seventh:
+        # 自然音阶的七音只会是小七度(10)或大七度(11)，统一记作 7
+        intervals.append(seventh_interval)
+        name += "7"
+    return name, intervals
 
 
-def build_progression(key: str, degrees):
+def build_progression(key: str, degrees, seventh: bool = False):
     """级数列表 -> (和弦名列表, {和弦名: 半音列表})。"""
     if not degrees:
         raise ValueError("progression 不能为空")
@@ -152,10 +163,52 @@ def build_progression(key: str, degrees):
     names = []
     chord_map = {}
     for degree in degrees:
-        name, semitones = degree_to_chord(key, degree)
+        name, semitones = degree_to_chord(key, degree, seventh=seventh)
         names.append(name)
         chord_map[name] = semitones
     return names, chord_map
+
+
+def voice_lead(chord_pcs, previous, low: int, high: int):
+    """把一组音级铺进 low~high，并尽量贴近上一个和弦（voice leading）。
+
+    做法：按"上一个和弦的每个音"逐个找最近的和弦音（贪心匹配，而不是按根音顺序硬配），
+    内声部就不会每小节大跳 —— 原位三和弦连续排列听起来"块状"就是这个原因。
+    """
+    pcs = list(dict.fromkeys(chord_pcs))   # 去重，保持顺序
+    if not pcs:
+        return []
+
+    center = (low + high) / 2
+    if previous and len(previous) >= len(pcs):
+        targets = sorted(previous)[-len(pcs):]
+    else:
+        targets = [center] * len(pcs)
+
+    remaining = list(pcs)
+    used = set()
+    voicing = []
+
+    for target in targets:
+        best = None
+        for pc in remaining:
+            options = [
+                p for p in range(low, high + 1) if p % 12 == pc and p not in used
+            ]
+            if not options:
+                continue
+            pick = min(options, key=lambda p: (abs(p - target), p))
+            cost = abs(pick - target)
+            if best is None or cost < best[0]:
+                best = (cost, pc, pick)
+        if best is None:
+            break
+        _, pc, pitch = best
+        voicing.append(pitch)
+        used.add(pitch)
+        remaining.remove(pc)
+
+    return sorted(voicing)
 
 
 def default_progression(key: str):

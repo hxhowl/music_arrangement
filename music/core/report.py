@@ -24,8 +24,10 @@ ROLE_RANGE = {
     "chords": (40, 72),
     "bass":   (26, 52),
     "pad":    (50, 88),
+    "arp":    (48, 92),
     "lead":   (56, 92),
     "drums":  (35, 60),
+    "perc":   (30, 90),
 }
 
 
@@ -42,6 +44,21 @@ def _last_active_bar(sections, overrides: dict = None) -> dict:
                 out[key] = offset + count
         offset += count
     return out
+
+
+def _collisions(a_notes, b_notes) -> int:
+    """两条轨在同一时刻响同一个音高的次数。
+
+    注意：**音区重叠本身完全正常**（真实乐器音域本来就大面积重叠）。
+    真正会出问题的是"同一时刻、同一个音高"——同频叠置互相抵消，
+    旋律会丢掉轮廓，听起来像"糊在一起"。
+    """
+    seen = set()
+    for x in a_notes:
+        for y in b_notes:
+            if x.pitch == y.pitch and x.start < y.end and y.start < x.end:
+                seen.add((round(x.start, 2), x.pitch))
+    return len(seen)
 
 
 def check(mid_path: str, config: dict = None, progression=None) -> bool:
@@ -110,6 +127,21 @@ def check(mid_path: str, config: dict = None, progression=None) -> bool:
                 f"轨 {inst.name!r} 在 {last_bar:.1f} 小节后就没音了"
                 f"（按编排应到 {due} 小节）"
             )
+
+    # 同音高同时发声才是真冲突；音区重叠是正常的，不检查
+    # 只检查涉及主旋律的冲突：伴奏之间同音加倍是正常配器手法（齐奏/八度加倍），
+    # 但旋律被别的声部同音叠置，轮廓就会糊掉。
+    melody = next((i for i in pm.instruments if i.name == "lead"), None)
+    if melody:
+        for other in pm.instruments:
+            if other is melody or other.is_drum or not other.notes:
+                continue
+            count = _collisions(melody.notes, other.notes)
+            if count:
+                hints.append(
+                    f"轨 'lead' 与 {other.name!r} 有 {count} 处同音高同时发声"
+                    f"（同频叠置会削弱旋律轮廓）"
+                )
 
     # 鼓必须落在 channel 10（0-index 9）
     for track in m.tracks:

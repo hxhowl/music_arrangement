@@ -31,9 +31,11 @@ music_arrangement/
 │   │   ├── theory.py          # 乐理：调性 -> 级数 -> 和弦，GM 映射
 │   │   └── report.py          # 产物体检
 │   └── patterns/              # 各音轨生成逻辑（数据驱动，不写死风格）
-│       ├── chords.py
+│       ├── chords.py          # 和弦（带 voice leading）
 │       ├── bass.py
 │       ├── drums.py
+│       ├── perc.py            # 沙锤/铃鼓/侧击
+│       ├── arp.py             # 琶音织体
 │       ├── lead.py
 │       └── pad.py
 ├── projects/                  # 每个项目独立目录
@@ -42,6 +44,7 @@ music_arrangement/
 │       ├── config.json        # 本项目唯一参数源
 │       ├── decisions.md
 │       └── music/output/      # MIDI 与参数快照
+├── tests/                     # pytest（理论/配置/风格/编排/渲染）
 ├── tools/
 │   ├── init_env.sh
 │   ├── new_song.sh            # 从一句话建项目
@@ -102,6 +105,32 @@ bash tools/check.sh projects/demo/music/output/demo-v5.mid projects/demo
 | `seed` | `0` = 完全确定；`>0` = 随机演奏（力度/时值/装饰音/短语起点） |
 | `velocity_base` | 整体力度，80 为基准 |
 
+## 七条轨的分工
+
+| 轨 | 作用 | 设计要点 |
+|---|---|---|
+| `chords` | 和声节奏层 | 按 **voice leading** 排列：每个声部走最近的八度，不再原位硬跳 |
+| `bass` | 低音 | 统一折进一个八度窗口，避免八度乱跳 |
+| `drums` | 鼓组 | 分档密度 + 过门 + 吊镲 |
+| `perc` | 装饰打击乐 | 沙锤/铃鼓/侧击，撑"律动感"但不占低频 |
+| `arp` | 琶音织体 | 和弦音上下行分解，填中高频空隙 |
+| `lead` | 旋律 | 按和弦音级取音，**音区独占** |
+| `pad` | 铺底 | 有旋律时自动压低（`duck`）并让开旋律占用的音高 |
+
+**关于音区重叠**：所有轨的音域天然重叠，这是正常的（真实乐器也这样）。
+体检不检查"音区是否重叠"，只检查**同一时刻响同一个音高**——那会让旋律失去轮廓。
+`pad` 和 `arp` 会主动避开 `lead` 正在响的音高，所以这项检查现在是 0。
+
+## 测试
+
+```bash
+pip install -r requirements.txt pytest
+pytest
+```
+
+覆盖：乐理推导、配置校验、风格/编排合并（含全局不被污染）、
+生成确定性与多 take、段落换风格只影响该段、旋律无同音冲突。
+
 ## 四种风格
 
 | 风格 | 和弦 | 贝斯 | 鼓 | 旋律 |
@@ -116,13 +145,13 @@ bash tools/check.sh projects/demo/music/output/demo-v5.mid projects/demo
 `config.json` 的 `sections` 顺序就是时间轴顺序，键名必须在 `ARRANGE` 里存在，
 否则直接报错（不会静默丢掉整段）。
 
-| 段落 | chords | bass | drums | lead | pad | 力度 | 风格 |
-|---|---|---|---|---|---|---|---|
-| intro | ✓ | — | — | — | ✓ | 0.70 | 跟整首 |
-| verse | ✓ | ✓ | medium | — | ✓ | 0.85 | 跟整首 |
-| chorus | ✓ | ✓ | full | ✓ | ✓ | 1.00 | 跟整首 |
-| bridge | ✓ | ✓ | light | — | ✓ | 0.80 | 跟整首 |
-| outro | ✓ | — | — | — | ✓ | 0.65 | 跟整首 |
+| 段落 | chords | bass | drums | perc | arp | lead | pad | 力度 | 风格 |
+|---|---|---|---|---|---|---|---|---|---|
+| intro | ✓ | — | — | — | ✓ | — | ✓ | 0.70 | 跟整首 |
+| verse | ✓ | ✓ | medium | ✓ | — | — | ✓ | 0.85 | 跟整首 |
+| chorus | ✓ | ✓ | full | ✓ | ✓ | ✓ | ✓ | 1.00 | 跟整首 |
+| bridge | ✓ | ✓ | light | — | ✓ | — | ✓ | 0.80 | 跟整首 |
+| outro | ✓ | — | — | — | — | — | ✓ | 0.65 | 跟整首 |
 
 `crash` 只有副歌为 `true`；`fill` 除 intro/outro 外为 `true`。
 
@@ -164,6 +193,8 @@ bash tools/check.sh projects/demo/music/output/demo-v5.mid projects/demo
 chords → Alchemy Pad / Piano
 bass → Studio Bass
 drums → Drum Machine Designer（GM 映射，channel 10）
+perc → 打击乐采样（沙锤/铃鼓/侧击）
+arp → 拨弦/合成琶音（Pluck / Alchemy）
 lead → Alchemy Lead / ES2
 pad → Sculpture / Strings
 ```

@@ -57,11 +57,13 @@ def build(lead_inst, ctx):
             TONE_COUNT, high,
         )
         start = ctx.bar_time(i)
+        played = []
 
         for degree, offset_beats, beats in plan:
             pitch = tones[degree]
             while pitch > high:
                 pitch -= 12
+            played.append(pitch)
             lead_inst.notes.append(
                 pretty_midi.Note(
                     velocity=ctx.jitter(scale_velocity(spec["velocity"], ctx.vel_scale)),
@@ -70,3 +72,6 @@ def build(lead_inst, ctx):
                     end=start + (offset_beats + beats) * beat,
                 )
             )
+
+        # 登记本小节旋律占用的音高，让 pad 之类的铺底声部避开
+        ctx.occupy(i, played)

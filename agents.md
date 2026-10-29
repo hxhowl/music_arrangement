@@ -33,9 +33,10 @@ AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预�
    pattern 里禁止 `if section == ...`，禁止写死音高与节奏常量。
 5. **和弦只有一个来源**：`music/core/theory.py` 的 `build_progression(key, 级数)`。
    调性写 `key`、进行写级数，不要写绝对和弦名。
-6. **MIDI 规范**：Format 1、PPQ 960、鼓轨 GM 映射落 channel 10、
-   音轨名 chords/bass/drums/lead/pad（`arp` 未实现，不要引用）、空轨不写入文件。
+6. **MIDI 规范**：Format 1、PPQ 960、鼓与打击乐落 channel 10、
+   音轨名 chords/bass/drums/perc/arp/lead/pad、空轨不写入文件。
 7. **体检不通过不算完成**：`tools/compose.sh` 生成后自动体检，失败必须说明原因。
+   改代码后还要跑 `pytest`——它是这套东西唯一能自动证明"没改坏"的手段。
 8. **上下文最小化**：新窗口只加载 agents.md + 当前项目 brief.md/config.json，不继承历史聊天。
 
 ## 技能索引
@@ -60,6 +61,7 @@ bash tools/compose.sh projects/<dir>                      # 生成（版本自�
 bash tools/compose.sh projects/<dir> v5 --takes 3         # 一次出 3 个演奏版本
 bash tools/compose.sh projects/<dir> --seed 9             # 换一个 seed 再出一版
 bash tools/check.sh projects/<dir>/music/output/<f>.mid   # 单独体检
+pytest                                                    # 跑测试（改代码后必跑）
 ```
 
 ## 输出约定

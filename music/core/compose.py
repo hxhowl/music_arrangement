@@ -18,11 +18,13 @@ from core.context import Ctx
 from core.report import check
 from core.styles import resolve as resolve_style
 from core.theory import build_progression
+from patterns.arp import build as build_arp
 from patterns.bass import build as build_bass
 from patterns.chords import build as build_chords
 from patterns.drums import build as build_drums
 from patterns.lead import build as build_lead
 from patterns.pad import build as build_pad
+from patterns.perc import build as build_perc
 
 # 与 Logic Pro 默认 PPQ 对齐，避免 16 分/三连音导入时被重新量化
 RESOLUTION = 960
@@ -32,6 +34,8 @@ TRACKS = {
     "chords": dict(program=0,  name="chords"),
     "bass":   dict(program=33, name="bass"),
     "drums":  dict(program=0,  name="drums", is_drum=True),
+    "perc":   dict(program=0,  name="perc", is_drum=True),
+    "arp":    dict(program=81, name="arp"),
     "lead":   dict(program=80, name="lead"),
     "pad":    dict(program=90, name="pad"),
 }
@@ -83,8 +87,17 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
     if unused:
         print(f"[warn] config.arrange 里的 {sorted(unused)} 不在 sections 里，本次不会生效")
 
-    # 级数 -> 实际和弦
-    progression, chord_map = build_progression(cfg["key"], cfg["progression"])
+    # 级数 -> 实际和弦。是否用七和弦由风格决定，所以按 seventh 缓存两套
+    prog_cache = {}
+
+    def progression_for(seven: bool):
+        if seven not in prog_cache:
+            prog_cache[seven] = build_progression(
+                cfg["key"], cfg["progression"], seventh=seven
+            )
+        return prog_cache[seven]
+
+    progression, _ = progression_for(False)
 
     # seed=0 时 rng 为 None，产物完全确定（同参数两次生成字节相同）
     rng = random.Random(seed) if seed else None
@@ -102,6 +115,9 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
     spec_cache = {style: resolve_style(style, tweaks)}
     used_sections = {}
 
+    # 主旋律占用的音高，跨段共享，供 pad 等铺底声部避让
+    occupied = {}
+
     bar = 0
     for section, bars in cfg["sections"].items():
         arr = get_arrange(section, arrange_overrides)
@@ -112,12 +128,17 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
         if section_style != style:
             used_sections[section] = section_style
 
+        section_spec = spec_cache[section_style]
+        section_prog, section_chords = progression_for(
+            bool(section_spec["chords"].get("seventh"))
+        )
+
         ctx = Ctx(
             bpm=bpm,
             start_bar=bar,
             bars=bars,
-            progression=progression,
-            chords=chord_map,
+            progression=section_prog,
+            chords=section_chords,
             vel_scale=arr["vel"] * master,
             style=section_style,
             style_spec=spec_cache[section_style],
@@ -126,6 +147,8 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
             fill=arr["fill"],
             seed=seed,
             rng=rng,
+            occupied=occupied,
+            lead_playing=bool(arr["lead"]),
         )
 
         if arr["chords"]:
@@ -134,8 +157,13 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
             build_bass(insts["bass"], ctx)
         if arr["drums"]:
             build_drums(insts["drums"], ctx)
+        # lead 先写：arp 和 pad 都要读它占用的音高来避让
         if arr["lead"]:
             build_lead(insts["lead"], ctx)
+        if arr.get("perc"):
+            build_perc(insts["perc"], ctx)
+        if arr.get("arp"):
+            build_arp(insts["arp"], ctx)
         if arr["pad"]:
             build_pad(insts["pad"], ctx)
 

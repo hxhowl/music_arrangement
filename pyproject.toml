@@ -1,0 +1,20 @@
+[project]
+name = "music-arrangement"
+version = "0.9.0"
+description = "AI 代码编曲工坊：Python 生成多轨 MIDI → Logic Pro 精修"
+requires-python = ">=3.10"
+dependencies = [
+    "pretty_midi==0.2.11.post0",
+    "mido==1.3.3",
+    "numpy==2.2.6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+
+[tool.pytest.ini_options]
+# code 目录不是标准包布局（music/core、music/patterns），用 pythonpath 让测试能 import
+pythonpath = ["music"]
+testpaths = ["tests"]
+# 沙箱里系统临时目录可能不可写，把 pytest 的临时根放到仓库内（已 gitignore）
+addopts = "-q --basetemp=.pytest_tmp"
