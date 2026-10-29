@@ -41,7 +41,9 @@ AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预�
 7. **时间轴只认三样东西**：和声节奏（`ctx.chord_spans()`）、swing（`ctx.at()`）、
    随机演奏（`ctx.jitter/sway`）。pattern 里不许出现"第 3 拍 = 某音"这类硬编码拍位判断。
 8. **体检不通过不算完成**：`tools/compose.sh` 生成后自动体检，失败必须说明原因。
-   改代码后还要跑 `pytest`——它是这套东西唯一能自动证明"没改坏"的手段。
+   改完代码**或文档**都要跑 `pytest` —— 它是唯一能自动证明"没改坏"的手段。
+   `tests/test_docs.py` 会查文档：版本标题唯一、无整块重复、引用的路径存在。
+   用 heredoc 往文档追加内容后尤其要跑（那是最容易整块重复的地方）。
 9. **音效不做成 MIDI 轨**：riser / impact / whoosh 是采样，MIDI 只能触发合成器音色。
    要交货就给 `<name>-vN.cues.md` 的时间点 + 让用户在 Logic 建 `SFX` 音频轨。
 10. **上下文最小化**：新窗口只加载 agents.md + 当前项目 brief.md/config.json，不继承历史聊天。
