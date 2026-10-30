@@ -101,5 +101,28 @@ class TestHandWrittenDocs:
         assert "patch 数" in _read("logic-patches.md")
 
 
+class TestEntryPoints:
+    """新窗口里模型只会自动拿到 agents.md。
+
+    如果 agents.md 不指向 references，换个模型/换个窗口就会凭记忆瞎报音色名 ——
+    这几条守的就是"入口不能断"。
+    """
+
+    def test_agents_md_points_here(self):
+        path = os.path.join(ROOT, "agents.md")
+        text = open(path, encoding="utf-8").read()
+        assert "references/logic-import.md" in text, "agents.md 的技能索引没指向 references"
+        assert "音色映射只认" in text, "agents.md 的硬规则里缺「音色映射只认 references」"
+
+    def test_logic_import_skill_points_here(self):
+        path = os.path.join(ROOT, "skills", "logic-import", "SKILL.md")
+        text = open(path, encoding="utf-8").read()
+        assert "references/logic-import.md" in text, "logic-import skill 没指向 references"
+
+    def test_readme_points_here(self):
+        text = open(os.path.join(ROOT, "README.md"), encoding="utf-8").read()
+        assert "references/logic-import.md" in text
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

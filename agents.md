@@ -52,6 +52,11 @@ AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预�
    放 `docs/music_knowledge/`，用中文、讲人话、参数名对得上代码；
    执行流程仍然只写在 skill 里，两边不要混。
 11. **上下文最小化**：新窗口只加载 agents.md + 当前项目 brief.md/config.json，不继承历史聊天。
+12. **音色映射只认 `references/`**：program 号 → GM 名 → Logic 该加载什么的对应关系，
+    只写在 `references/`（从**这台机器**导出的真实数据，含 128 个 GM 音色与鼓组）。
+    **禁止凭记忆报 Logic 的 patch 名**，也禁止说"应该加载弦乐群"这种没有依据的判断 —— 先读那张表。
+    改了 `music/core/instruments.py` 里的 program 号，必须重跑 `python tools/gen_references.py`，
+    否则 `tests/test_references.py` 会红（这是故意的）。
 
 ## 技能索引
 
@@ -63,6 +68,7 @@ AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预�
 | 出 MIDI、换风格再出一版、生成失败排查 | `skills/midi-compose/SKILL.md` |
 | 听完要改、"鼓太弱""想更空""换个调" | `skills/midi-iterate/SKILL.md` |
 | 导入 Logic、选音色、试听与验收 | `skills/logic-import/SKILL.md` |
+| **"这条轨在 Logic 里该加载什么""乐器怎么对不上"** | `references/logic-import.md`（本机实测对照表，**别凭记忆报音色名**） |
 | 问"为什么这么分轨""听感不对该动哪层" | `docs/music_knowledge/`（讲给用户听的，不是执行规范） |
 
 > skill 若没被自动加载（实测可能出现 `Can not find skill`），直接 Read 上表文件照做即可。

@@ -25,6 +25,9 @@ bash tools/check.sh projects/<dir>/music/output/<file>.mid projects/<dir>
 
 ## 音色
 
+**先读 `references/logic-import.md`**：那里有逐槽的 program 号 → GM 音色名 → Logic 该搜什么，
+数据是从本机导出的，不是猜的。**别凭印象报 patch 名** —— 音色库每台机器都不一样。
+
 轨道自带的 GM program 来自 `config.json` 的 `preset` / `instruments`
 （`bash tools/instruments.sh --project <dir>` 可以看这首歌实际用了什么）。
 Logic 打开 MIDI 时会按它分配软件乐器；**最终都要按你的音源库调**：
