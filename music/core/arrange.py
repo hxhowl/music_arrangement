@@ -10,7 +10,7 @@
 改了等于改所有项目，违反"每次改动只作用于当前这首歌"。
 """
 
-from core.styles import STYLES
+from core.styles import COUNTER_VOICES, STYLES
 
 TRACK_KEYS = ("chords", "bass", "drums", "perc", "arp", "lead", "counter", "pad")
 DRUM_LEVELS = (None, "light", "medium", "full")
@@ -21,22 +21,25 @@ DRUM_LEVELS = (None, "light", "medium", "full")
 # counter: 副旋律。默认只在主歌/桥段开 —— 副歌要把空间留给主旋律，
 #          而且副旋律只在主旋律空着的地方出声，主歌没旋律时它才有位置。
 #          想在副歌也加，就写 config.arrange.chorus.counter = true。
+# counter_voice: 副旋律在哪一侧。None = 用风格里的 voice；
+#          "low" = 压在主旋律下面当回话，"high" = 抬到上面做上方对位。
+#          典型用法：副歌把 counter 打开并设成 "high"，马上多一层。
 ARRANGE = {
     "intro":  dict(chords=True, bass=False, drums=None,     perc=False, arp=True,
                    lead=False, counter=False, pad=True,
-                   vel=0.70, crash=False, fill=False, style=None),
+                   vel=0.70, crash=False, fill=False, style=None, counter_voice=None),
     "verse":  dict(chords=True, bass=True,  drums="medium", perc=True,  arp=False,
                    lead=False, counter=True,  pad=True,
-                   vel=0.85, crash=False, fill=True,  style=None),
+                   vel=0.85, crash=False, fill=True,  style=None, counter_voice=None),
     "chorus": dict(chords=True, bass=True,  drums="full",   perc=True,  arp=True,
                    lead=True,  counter=False, pad=True,
-                   vel=1.00, crash=True,  fill=True,  style=None),
+                   vel=1.00, crash=True,  fill=True,  style=None, counter_voice=None),
     "bridge": dict(chords=True, bass=True,  drums="light",  perc=False, arp=True,
                    lead=False, counter=True,  pad=True,
-                   vel=0.80, crash=False, fill=True,  style=None),
+                   vel=0.80, crash=False, fill=True,  style=None, counter_voice=None),
     "outro":  dict(chords=True, bass=False, drums=None,     perc=False, arp=False,
                    lead=False, counter=False, pad=True,
-                   vel=0.65, crash=False, fill=False, style=None),
+                   vel=0.65, crash=False, fill=False, style=None, counter_voice=None),
 }
 
 
@@ -82,6 +85,11 @@ def get(section: str, overrides: dict = None) -> dict:
         raise ValueError(
             f"段落 {section!r} 的 style={arr['style']!r} 未知，"
             f"可选 {', '.join(STYLES)}（或留空表示跟整首歌）"
+        )
+    if arr["counter_voice"] is not None and arr["counter_voice"] not in COUNTER_VOICES:
+        raise ValueError(
+            f"段落 {section!r} 的 counter_voice={arr['counter_voice']!r} 不合法，"
+            f"只能是 {' / '.join(COUNTER_VOICES)}（或留空表示用风格里的设置）"
         )
     try:
         arr["vel"] = float(arr["vel"])

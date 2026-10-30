@@ -5,7 +5,12 @@
   "progression": ["i", "VI", "III", "VII"],
   "style": "cinematic",
   "style_tweaks": {},
-  "arrange": {},
+  "arrange": {
+    "chorus": {
+      "counter": true,
+      "counter_voice": "high"
+    }
+  },
   "time_sig": [4, 4],
   "sections": {
     "intro": 4,

@@ -255,6 +255,70 @@ class TestCounter:
         path, _ = compose(str(project), "v1", report=False)[0]
         assert _collisions(_notes(path, "counter"), _notes(path, "pad")) == 0
 
+    def test_high_voice_sits_above_lead(self, make_project):
+        """上方对位允许和主旋律同时响，但必须明显在上面（>=3 个半音）。"""
+        project = make_project(
+            sections={"verse": 2, "chorus": 4},
+            arrange={"chorus": {"counter": True, "counter_voice": "high"}},
+        )
+        path, _ = compose(str(project), "v1", report=False)[0]
+        lead = _notes(path, "lead")
+        counter = _notes(path, "counter")
+
+        overlapping = [
+            (c.pitch, m.pitch)
+            for c in counter for m in lead
+            if m.start < c.end - 1e-6 and c.start < m.end - 1e-6
+        ]
+        assert overlapping, "高位副旋律应该和主旋律有重叠，否则它是 low 不是 high"
+        for mine, theirs in overlapping:
+            assert mine - theirs >= 3, f"counter {mine} 与 lead {theirs} 只差 {mine - theirs} 个半音"
+
+    def test_high_voice_plays_more_than_low(self, make_project):
+        """low 只在空档出声；high 可以同时响，所以副歌音符数应该更多。"""
+        def count(voice):
+            project = make_project(
+                sections={"verse": 2, "chorus": 4},
+                arrange={"chorus": {"counter": True, "counter_voice": voice}},
+            )
+            path, _ = compose(str(project), "v1", report=False)[0]
+            bar = 4 * 60 / 100
+            return len([n for n in _notes(path, "counter") if n.start >= 2 * bar])
+
+        assert count("high") > count("low")
+
+
+class TestOccupiedScope:
+    """`occupied` 是全曲共享的字典，键必须是绝对小节号。
+
+    曾经键用的是段落内的小节号：主歌第 1 小节主旋律占的音高，会让副歌第 1 小节
+    的 pad / arp 也白白让开 —— 表现为"pad 莫名少音"，而且换编排就变，很难查。
+    """
+
+    def _ctx(self, start_bar, shared):
+        from core.context import Ctx
+
+        return Ctx(
+            bpm=120, start_bar=start_bar, bars=2, progression=["Am"],
+            chords={"Am": (0, 3, 7)}, vel_scale=1.0, style="pop",
+            style_spec={}, occupied=shared,
+        )
+
+    def test_same_local_bar_different_section(self):
+        shared = {}
+        verse = self._ctx(4, shared)
+        chorus = self._ctx(12, shared)
+
+        verse.occupy(0, [60])
+        assert verse.is_occupied(0, 60)
+        assert not chorus.is_occupied(0, 60), "主歌第 1 小节占的音高不该漏到副歌第 1 小节"
+
+    def test_same_section_still_works(self):
+        ctx = self._ctx(4, {})
+        ctx.occupy(1, [64])
+        assert ctx.is_occupied(1, 64)
+        assert not ctx.is_occupied(0, 64)
+
 
 class TestCueSheet:
     def test_written_next_to_midi(self, make_project):

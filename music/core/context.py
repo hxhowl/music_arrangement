@@ -39,6 +39,8 @@ class Ctx:
     swing: float = 0.0
     # 主旋律实际写下的音符 (start, end, pitch)，供副旋律/铺底避让
     lead_notes: list = field(default_factory=list)
+    # 副旋律在哪一侧："low" 压在主旋律下面 / "high" 抬到上面 / None = 用风格里的设置
+    counter_voice: str | None = None
 
     # ---------- 时间 ----------
 
@@ -154,11 +156,16 @@ class Ctx:
     # ---------- 声部避让 ----------
 
     def occupy(self, bar_index: int, pitches) -> None:
-        """登记这一段已被主旋律占用的音高。"""
-        self.occupied.setdefault(bar_index, set()).update(pitches)
+        """登记这一段已被主旋律占用的音高。
+
+        `bar_index` 是**段落内**的小节号，但 `occupied` 是全曲共享的字典
+        （compose 只建一次），所以这里要换算成绝对小节号再存 ——
+        否则主歌第 3 小节占的音高会误伤副歌第 3 小节，pad/arp 会莫名少音。
+        """
+        self.occupied.setdefault(self.start_bar + bar_index, set()).update(pitches)
 
     def is_occupied(self, bar_index: int, pitch: int) -> bool:
-        return pitch in self.occupied.get(bar_index, ())
+        return pitch in self.occupied.get(self.start_bar + bar_index, ())
 
     def register_lead(self, start: float, end: float, pitch: int) -> None:
         """登记主旋律的一个音，供副旋律判断"这里有没有空"。"""

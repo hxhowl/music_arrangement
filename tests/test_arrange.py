@@ -44,6 +44,19 @@ class TestOverrides:
         with pytest.raises(ValueError, match="未知"):
             get("chorus", {"chorus": {"style": "techno"}})
 
+    def test_counter_voice_default_is_none(self):
+        """默认交给风格决定，编排层不硬塞一个声部。"""
+        assert get("chorus")["counter_voice"] is None
+
+    def test_counter_voice_override(self):
+        arr = get("chorus", {"chorus": {"counter": True, "counter_voice": "high"}})
+        assert arr["counter"] is True
+        assert arr["counter_voice"] == "high"
+
+    def test_bad_counter_voice_raises(self):
+        with pytest.raises(ValueError, match="counter_voice"):
+            get("chorus", {"chorus": {"counter_voice": "middle"}})
+
     def test_non_bool_flag_raises(self):
         with pytest.raises(ValueError, match="true/false"):
             get("chorus", {"chorus": {"crash": "yes"}})

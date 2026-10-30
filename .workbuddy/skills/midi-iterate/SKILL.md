@@ -32,6 +32,7 @@ description: 用户对已生成版本有意见时（鼓太弱、太吵、想更�
 | 和弦换得太慢 / 太赶 | `harmonic_rhythm` | 每和弦几拍：2=半小节、4=一小节、8=两小节 |
 | 太"方"、想摇一点 | `swing` | 0=直拍，0.33≈三连音感，0.66≈shuffle |
 | 副歌缺个对答声部 | `arrange.chorus.counter` | `true` 才在副歌开副旋律（默认关，让位给主旋律） |
+| 副歌想在上面再叠一层 | `arrange.<段>.counter_voice` | `"high"` = 与主旋律同时响的上方对位（配中提琴/圆号）；不写 = `"low"` 只在空档回话 |
 | 副旋律太吵 / 太高 | `style_tweaks.counter.velocity` / `.range` | |
 | 想在某处加 riser / whoosh | `cues` | `[{"bar": 21, "beat": 3, "what": "whoosh"}]` |
 | 整体气质不对（太摇滚 / 想更空） | `style` | 整套换掉（影响全曲） |

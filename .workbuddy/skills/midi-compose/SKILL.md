@@ -136,6 +136,7 @@ grep -A 20 '"pop": dict' music/core/styles.py   # 看一份完整样例
 | `config.cues 每项至少要有 bar` | `cues` 是 `[{"bar": 21, "beat": 3, "what": "whoosh"}]` |
 | `未知编制预设 'x'` | `preset` 只能是 band / cinematic / lofi / acoustic / electronic |
 | `chords 没有 'sitar' 这个乐器` | 乐器名写错，报错里会列出该槽全部可选值 |
+| `counter_voice=… 不合法` | 只能是 `low` / `high`，或不写（表示用风格里的设置） |
 
 ## 边界
 - 不自动 bounce 音频；不做人声

@@ -11,8 +11,17 @@ class TestResolve:
             spec = resolve(name)
             assert set(spec) >= {
                 "chords", "bass", "drums", "lead", "pad",
-                "fill", "fill_every", "ghost", "humanize", "perc", "arp", "counter", "counter",
+                "fill", "fill_every", "ghost", "humanize", "perc", "arp", "counter",
             }
+
+    def test_counter_voice_declared(self):
+        """每个风格都要明确写出副旋律声部，别让 pattern 去猜。"""
+        for name in names():
+            assert resolve(name)["counter"]["voice"] in ("low", "high")
+
+    def test_bad_counter_voice_rejected(self):
+        with pytest.raises(ValueError, match="counter.voice"):
+            resolve("pop", {"counter": {"voice": "middle"}})
 
     def test_tweaks_do_not_touch_global(self):
         before = copy.deepcopy(STYLES["pop"])

@@ -131,8 +131,10 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
     spec_cache = {style: resolve_style(style, tweaks)}
     used_sections = {}
 
-    # 主旋律占用的音高，跨段共享，供 pad 等铺底声部避让
+    # 主旋律占用的音高，跨段共享（键是**绝对**小节号，见 Ctx.occupy）
     occupied = {}
+    # 哪几段把副旋律放到了上方（只用于输出提示，方便确认 config 生效了）
+    counter_voices = {}
 
     bar = 0
     for section, bars in cfg["sections"].items():
@@ -169,6 +171,7 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
             beats_per_chord=harmonic_rhythm or float(section_spec["chords"].get("beats", 4)),
             beats_per_bar=num,
             swing=swing,
+            counter_voice=arr.get("counter_voice"),
         )
 
         if arr["chords"]:
@@ -187,6 +190,8 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
         # counter 也要在 lead 之后（要读主旋律的空档），但要在 pad 之前（pad 避让它）
         if arr.get("counter"):
             build_counter(insts["counter"], ctx)
+            if arr.get("counter_voice"):
+                counter_voices[section] = arr["counter_voice"]
         if arr["pad"]:
             build_pad(insts["pad"], ctx)
 
@@ -223,6 +228,9 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
     if used_sections:
         detail = "、".join(f"{s}={v}" for s, v in used_sections.items())
         print(f"[info] 段落换风格: {detail}")
+    if counter_voices:
+        detail = "、".join(f"{s}={v}" for s, v in counter_voices.items())
+        print(f"[info] 副旋律声部: {detail}")
 
     ok = True
     if report:

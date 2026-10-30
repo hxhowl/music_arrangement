@@ -23,7 +23,10 @@
   perc   : dict(gm=鼓件, step=间隔拍, velocity=力度, accents=重拍位置)
   arp    : dict(range=(最低, 最高), step=间隔拍, velocity=力度, octaves=跨几个八度)
   counter: dict(range=(最低, 最高), velocity=力度, target=中心音,
-                rhythm=[(起始拍, 时长拍, 音级)]) 副旋律，只在主旋律空着的地方出声
+                voice="low"|"high", rhythm=[(起始拍, 时长拍, 音级)])
+           副旋律，只在主旋律空着的地方出声。voice 决定它在主旋律的**哪一侧**：
+           low = 压在下面当"回话"（大提琴/巴松这种低音区乐器）；
+           high = 抬到上面当"上方对位"（中提琴/圆号这种，副歌加层次用）
 """
 
 import copy
@@ -34,6 +37,9 @@ from core.theory import GM_DRUM
 FILL_STD = (("tom_high", 0.0), ("tom_mid", 0.25), ("tom_low", 0.5), ("snare", 0.75))
 # 通用呼吸小节：两个长音
 BREATH_STD = ((0, 0.0, 1.8), (2, 2.0, 1.8))
+
+# 副旋律相对主旋律的位置：低（回话）/ 高（上方对位）
+COUNTER_VOICES = ("low", "high")
 
 
 def _eighths(gm_key: str, base: int, length: float = 0.05):
@@ -64,7 +70,7 @@ STYLES = {
         ghost=dict(chance=0.0, velocity=28),
         perc=dict(gm="shaker", step=1.0, velocity=32, accents=(0,)),
         arp=dict(range=(60, 79), step=0.5, velocity=38, octaves=2),
-        counter=dict(range=(52, 69), velocity=54,
+        counter=dict(range=(52, 69), velocity=54, voice="low",
                      rhythm=[(0.0, 1.8, 2), (2.5, 1.2, 1)]),   # 长音答句
         humanize=dict(velocity=3, sway=0.008),   # 心跳鼓不加装饰音
     ),
@@ -93,7 +99,7 @@ STYLES = {
         ghost=dict(chance=0.35, velocity=28),
         perc=dict(gm="tambourine", step=0.5, velocity=40, accents=(1, 3)),
         arp=dict(range=(60, 79), step=0.25, velocity=42, octaves=2),
-        counter=dict(range=(55, 71), velocity=62,
+        counter=dict(range=(55, 71), velocity=62, voice="low",
                      rhythm=[(1.5, 0.45, 3), (3.5, 0.45, 2)]),   # 反拍答句
         humanize=dict(velocity=3, sway=0.008),
     ),
@@ -121,7 +127,7 @@ STYLES = {
         ghost=dict(chance=0.35, velocity=24),
         perc=dict(gm="shaker", step=0.5, velocity=30, accents=(0, 2)),
         arp=dict(range=(57, 76), step=0.5, velocity=36, octaves=2),
-        counter=dict(range=(55, 71), velocity=56,
+        counter=dict(range=(55, 71), velocity=56, voice="low",
                      rhythm=[(1.0, 0.5, 1), (3.0, 0.6, 2)]),   # 切分答句
         humanize=dict(velocity=3, sway=0.008),
     ),
@@ -153,7 +159,7 @@ STYLES = {
         ghost=dict(chance=0.45, velocity=30),
         perc=dict(gm="rim", step=0.5, velocity=36, accents=(1,)),
         arp=dict(range=(64, 84), step=0.25, velocity=48, octaves=2),
-        counter=dict(range=(57, 74), velocity=66,
+        counter=dict(range=(57, 74), velocity=66, voice="low",
                      rhythm=[(0.75, 0.35, 3), (2.75, 0.35, 2)]),   # 错位答句
         humanize=dict(velocity=3, sway=0.008),
     ),
@@ -280,6 +286,12 @@ def _check_shapes(spec: dict) -> None:
     low, high = counter["range"]
     if not low < high:
         raise ValueError(f"counter.range={counter['range']!r} 不合法")
+    if counter.get("voice") not in COUNTER_VOICES:
+        raise ValueError(
+            f"counter.voice={counter.get('voice')!r} 不合法，"
+            f"只能是 {' / '.join(COUNTER_VOICES)}"
+            f"（low = 压在主旋律下面回话，high = 抬到上面做上方对位）"
+        )
     if not 1 <= int(counter["velocity"]) <= 127:
         raise ValueError(f"counter.velocity={counter['velocity']!r} 应在 1~127")
     for item in counter["rhythm"]:
