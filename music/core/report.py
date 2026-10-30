@@ -187,7 +187,7 @@ def check(mid_path: str, config: dict = None, progression=None) -> bool:
         from core.arrange import active_tracks
         expected_tracks = active_tracks(config["sections"], config.get("arrange"))
         actual = {inst.name for inst in pm.instruments if inst.notes}
-        missing = expected_tracks - actual - OPPORTUNISTIC - OPPORTUNISTIC
+        missing = expected_tracks - actual - OPPORTUNISTIC
         if missing:
             issues.append(f"以下轨按编排应有音符但实际为空: {sorted(missing)}")
 

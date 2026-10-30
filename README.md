@@ -55,8 +55,14 @@ music_arrangement/
 │   ├── compose.sh
 │   ├── instruments.sh         # 列出可选乐器与编制预设
 │   └── check.sh
+├── skills/                    # 技能包（agent 无关，可整包搬给别的 AI 工具）
+│   ├── song-brief/            # 起新歌
+│   ├── midi-compose/          # 出 MIDI
+│   ├── midi-iterate/          # 听完要改
+│   └── logic-import/          # 导入 Logic、选音色
+├── references/                # 本机真机数据导出的参考表（GM 音色 / Logic patch）
 └── .workbuddy/
-    └── skills/                # song-brief / midi-compose / midi-iterate / logic-import
+    └── skills -> ../skills    # 软链接：WorkBuddy 只认这个路径，实体在根目录
 ```
 
 ## 环境要求
@@ -110,6 +116,18 @@ bash tools/instruments.sh                                 # 看每个槽可选�
 - [分轨策略](docs/music_knowledge/01-分轨策略.md) —— 为什么按功能分 8 层，想加乐器轨之前必读
 - [听感问题定位](docs/music_knowledge/02-听感问题定位.md) —— "糊 / 吵 / 空 / 平"分别是哪一层的问题
 - [乐器选择](docs/music_knowledge/03-乐器选择.md) —— 每个功能槽用什么乐器，有哪些坑
+- [MIDI 到 Logic 的乐器对应](docs/music_knowledge/04-MIDI到Logic的乐器对应.md) —— 为什么导入后音色不对，program 号到底指什么
+
+## 导入 Logic 前先看这张表
+
+`references/` 里是从**本机**导出的参考数据（不是凭记忆写的）：
+
+- [references/gm-programs.md](references/gm-programs.md) —— 128 个 GM 音色 + 9 个鼓组的本机实际名字，
+  以及我们每个槽用的是哪个号
+- [references/logic-patches.md](references/logic-patches.md) —— 你机器上 Logic 音色库的规模与分类，每槽搜什么关键词
+- [references/logic-import.md](references/logic-import.md) —— 逐槽"该在 Logic 里加载什么"
+
+Logic 升级或新装音色库之后重跑一次：`python tools/gen_references.py`。
 
 ## 一份编曲由三样东西决定
 
@@ -168,11 +186,12 @@ pip install -r requirements.txt pytest
 pytest
 ```
 
-122 项，约 1 秒跑完。覆盖：乐理推导、配置校验、风格/编排合并（含全局不被污染）、
+132 项，约 1 秒跑完。覆盖：乐理推导、配置校验、风格/编排合并（含全局不被污染）、
 生成确定性与多 take、段落换风格只影响该段、旋律无同音冲突、
 **半小节换和弦 / 两小节一个和弦 / swing 只推后半拍 / 副旋律不与主旋律重叠 /
 副旋律上方对位 / occupied 按绝对小节号隔离 / 覆盖旧版本会告警 / 音效清单 /
-乐器预设与覆盖优先级 / 换乐器时弹法跟着变 / 鼓组不被 perc 覆盖 / 文档不出现重复行**。
+乐器预设与覆盖优先级 / 换乐器时弹法跟着变 / 鼓组不被 perc 覆盖 /
+skill 在根目录且软链接可达 / references 与代码保持同步 / 文档不出现重复行**。
 
 另有 `tests/test_docs.py` 专门查文档本身（`decisions.md` 的版本标题唯一且递增、
 文档里没有整块重复、反引号里的仓库路径真实存在、相对链接不失效、

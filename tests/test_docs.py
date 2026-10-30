@@ -17,7 +17,7 @@ DOC_GLOBS = (
     "README.md",
     "agents.md",
     "USER.md",
-    ".workbuddy/skills/*/SKILL.md",
+    "skills/*/SKILL.md",
     "projects/*/decisions.md",
     "projects/*/brief.md",
     "docs/music_knowledge/*.md",
@@ -141,7 +141,29 @@ class TestDecisionsLog:
 
 class TestSkillFrontmatter:
     def _skills(self):
-        return sorted(glob.glob(os.path.join(ROOT, ".workbuddy", "skills", "*", "SKILL.md")))
+        return sorted(glob.glob(os.path.join(ROOT, "skills", "*", "SKILL.md")))
+
+    def test_lives_at_repo_root(self):
+        """技能包放根目录 `skills/`，`.workbuddy/skills` 只是软链接。
+
+        放根目录是为了"换个 AI 工具也能整包搬走"；软链接是给只认
+        `.workbuddy/skills/` 的加载器（WorkBuddy 自己）留的入口。
+        """
+        assert self._skills(), "根目录 skills/ 下没有 SKILL.md"
+
+        link = os.path.join(ROOT, ".workbuddy", "skills")
+        assert os.path.islink(link), ".workbuddy/skills 应该是软链接"
+        assert os.path.realpath(link) == os.path.realpath(os.path.join(ROOT, "skills")), \
+            ".workbuddy/skills 应该指向根目录的 skills/"
+
+    def test_both_paths_resolve(self):
+        """两条路径都要能读到同一批文件，否则加载器会静默找不到 skill。"""
+        via_root = {os.path.basename(os.path.dirname(p)) for p in self._skills()}
+        via_link = {
+            os.path.basename(os.path.dirname(p))
+            for p in glob.glob(os.path.join(ROOT, ".workbuddy", "skills", "*", "SKILL.md"))
+        }
+        assert via_root == via_link and via_root, "软链接和根目录的内容不一致"
 
     def test_name_matches_directory(self):
         """skill 的 name 必须等于目录名，否则调用时找不到。"""

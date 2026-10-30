@@ -52,3 +52,8 @@ projects/*
 *.tmp
 *.log
 .env
+
+# ===== 真机数据 =====
+# references/ 里的自动表要提交（它们是参考）；你放进去的 Logic 工程是私人内容，不提交
+references/source/*
+!references/source/.gitkeep
