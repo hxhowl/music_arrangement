@@ -77,8 +77,35 @@ music_arrangement/
 ```
 cd ~/Documents/workspace/workbuddy/music_arrangement
 bash tools/init_env.sh
+python tools/gen_references.py      # 导出本机 Logic 音色映射，只跑一次
 bash tools/compose.sh projects/demo
 ```
+
+## 装好环境后跑一次：更新音色映射表
+
+```bash
+python tools/gen_references.py
+```
+
+它读**你这台机器**上的两个文件，生成 `references/` 下的两张表：
+
+| 读的是什么 | 写出的表 | 里面有什么 |
+|---|---|---|
+| macOS 自带的 GM 音色库（`gs_instruments.dls`） | `references/gm-programs.md` | 128 个 GM 音色 + 9 个鼓组的**实际名字**，以及本工程每个槽用的是哪个号 |
+| Logic 的音色库（app 内 + `~/Music/Logic Pro Library.bundle`） | `references/logic-patches.md` | 你装了多少个 patch、分几类、每个槽该搜什么关键词 |
+
+**为什么必须在本机跑一次**：GM 音色名和 Logic 音色库都是跟着机器走的。
+仓库里那份是作者机器导出的，换台电脑直接沿用会指错地方（路径、patch 名都可能不存在）。
+
+| 什么时候要重跑 | 说明 |
+|---|---|
+| 装完环境，第一次 | **要**（跑一次就够，之后基本不用管） |
+| 升级 Logic、或新装了音色库 | 要 |
+| 改了 `music/core/instruments.py` 里的 program 号 | 要（不然 `tests/test_references.py` 会红） |
+| 日常生成、改歌、换风格、换乐器选项 | 不用 |
+
+这个脚本只读系统文件，**不会启动 Logic，也不会碰你的 `.logicx` 工程**。
+macOS 上没装 Logic 也能跑：GM 那张表照常生成，Logic 那张会标"未找到"。
 
 ## 日常使用
 ```
@@ -127,7 +154,7 @@ bash tools/instruments.sh                                 # 看每个槽可选�
 - [references/logic-patches.md](references/logic-patches.md) —— 你机器上 Logic 音色库的规模与分类，每槽搜什么关键词
 - [references/logic-import.md](references/logic-import.md) —— 逐槽"该在 Logic 里加载什么"
 
-Logic 升级或新装音色库之后重跑一次：`python tools/gen_references.py`。
+这三份表的来历与"什么时候要重跑"，见上面的 [更新音色映射表](#装好环境后跑一次更新音色映射表)。
 
 ## 一份编曲由三样东西决定
 
