@@ -57,6 +57,17 @@ class TestOverrides:
         with pytest.raises(ValueError, match="counter_voice"):
             get("chorus", {"chorus": {"counter_voice": "middle"}})
 
+    def test_build_defaults(self):
+        assert get("chorus")["build"] == "up", "副歌默认渐强"
+        assert get("verse")["build"] is None
+
+    def test_build_override(self):
+        assert get("verse", {"verse": {"build": "down"}})["build"] == "down"
+
+    def test_bad_build_raises(self):
+        with pytest.raises(ValueError, match="build"):
+            get("verse", {"verse": {"build": "louder"}})
+
     def test_non_bool_flag_raises(self):
         with pytest.raises(ValueError, match="true/false"):
             get("chorus", {"chorus": {"crash": "yes"}})

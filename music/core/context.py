@@ -35,12 +35,16 @@ class Ctx:
     # 每个和弦占几拍：4 = 一小节一个，2 = 半小节一个，8 = 两小节一个
     beats_per_chord: float = 4.0
     beats_per_bar: int = 4
-    # 8 分音符摇摆量 0~0.8：0.33 大约是"三连音感"，0.66 是很夸张的 shuffle
+    # 0 = 直拍；0.33 大约是"三连音感"，0.66 是很夸张的 shuffle
     swing: float = 0.0
+    # 段内密度走向：None=整段一个密度 / "up"=渐强 / "down"=渐弱（见 density_at）
+    build: str | None = None
     # 主旋律实际写下的音符 (start, end, pitch)，供副旋律/铺底避让
     lead_notes: list = field(default_factory=list)
     # 副旋律在哪一侧："low" 压在主旋律下面 / "high" 抬到上面 / None = 用风格里的设置
     counter_voice: str | None = None
+    # 底鼓落在哪些拍位：{小节(段内): {拍偏移}}，供 bass 咬合（drums 必须先于 bass 构建）
+    kick_steps: dict = field(default_factory=dict)
 
     # ---------- 时间 ----------
 
@@ -170,6 +174,47 @@ class Ctx:
     def register_lead(self, start: float, end: float, pitch: int) -> None:
         """登记主旋律的一个音，供副旋律判断"这里有没有空"。"""
         self.lead_notes.append((start, end, pitch))
+
+    # ---------- 段落内动态 ----------
+
+    def density_at(self, bar_index: int):
+        """这一小节该用哪一档鼓密度。段落内渐强/渐弱在这里插值。
+
+        一整段只有一个密度，听起来就是"平的"；`arrange.<段>.build` 让密度在段内
+        从低一档爬到本段密度（up），或者反过来（down）。默认 None = 整段不变。
+
+        bar_index 是段内小节号。不用 ctx.bars 做分母的话，8 小节和 2 小节的段落
+        会得到完全不同的坡度，所以这里按"段内进度"插值。
+        """
+        if not self.build or not self.density:
+            return self.density
+
+        # 延迟导入：context 被所有 pattern 依赖，别在 import 期把 arrange 拉进来
+        from core.arrange import DRUM_LADDER
+
+        if self.density not in DRUM_LADDER:
+            return self.density
+
+        target = DRUM_LADDER.index(self.density)
+        neighbor = max(0, target - 1)
+        start, end = (neighbor, target) if self.build == "up" else (target, neighbor)
+
+        span = max(1, self.bars - 1)
+        progress = min(1.0, max(0.0, bar_index / span))
+        index = round(start + (end - start) * progress)
+        return DRUM_LADDER[max(0, min(len(DRUM_LADDER) - 1, index))]
+
+    # ---------- 节奏咬合 ----------
+    def register_kick(self, bar_index: int, beat_offset: float) -> None:
+        """登记底鼓落点。bass 用它跟自己对齐 —— 所以 drums 必须先于 bass 构建。
+
+        存拍位而不是秒数：bass 的节奏型也是拍位，直接在同一个坐标系里比，不用算 swing。
+        """
+        self.kick_steps.setdefault(bar_index, set()).add(round(float(beat_offset), 3))
+
+    def kicks_in(self, bar_index: int):
+        """某一小节里底鼓的拍位（升序）。"""
+        return sorted(self.kick_steps.get(bar_index, ()))
 
     def lead_sounding(self, start: float, end: float) -> bool:
         """主旋律在 [start, end) 内是否正在响。"""

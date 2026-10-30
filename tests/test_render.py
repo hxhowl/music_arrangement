@@ -218,10 +218,10 @@ class TestSwing:
         straight = make_project(swing=0)
         swung = make_project(swing=0.6)
 
-        a = [round(n.start, 4) for n in
-             _notes(compose(str(straight), "v1", report=False)[0][0], "bass")]
-        b = [round(n.start, 4) for n in
-             _notes(compose(str(swung), "v1", report=False)[0][0], "bass")]
+        a = sorted(round(n.start, 4) for n in
+                   _notes(compose(str(straight), "v1", report=False)[0][0], "bass"))
+        b = sorted(round(n.start, 4) for n in
+                   _notes(compose(str(swung), "v1", report=False)[0][0], "bass"))
 
         beat = 60 / 100
         expected = 0.6 * beat / 6
@@ -235,6 +235,210 @@ class TestSwing:
         path, _ = compose(str(project), "v1", report=False)[0]
         bar = 4 * 60 / 100
         assert abs(_load(path).get_end_time() / bar - 4) < 0.6
+
+
+class TestMelodyMotif:
+    """旋律要像"一句话"，不是同一句循环：A / A' / B / A''。"""
+
+    def _units(self, path, bars_per_unit=2, bars_total=8):
+        bar = 4 * 60 / 100
+        units = {}
+        for note in _notes(path, "lead"):
+            index = min(bars_total // bars_per_unit - 1,
+                        int(note.start / (bars_per_unit * bar)))
+            units.setdefault(index, []).append(
+                (note.pitch, round(note.end - note.start, 2))
+            )
+        return [units[k] for k in sorted(units)]
+
+    def test_units_differ(self, make_project):
+        """用单一和弦，把"和弦变了"这个变量排除掉。
+
+        整首只有一个和弦时，句子之间还不同 —— 那才是动机变奏起的作用；
+        用多和弦进行的话，光换和弦就能让四句不同，测不出来。
+        """
+        project = make_project(
+            style="cinematic", progression=["i"], sections={"chorus": 8}
+        )
+        path, _ = compose(str(project), "v1", report=False)[0]
+        shapes = [tuple(u) for u in self._units(path)]
+        assert len(shapes) == 4
+        assert len(set(shapes)) >= 3, f"四句里至少要有三句不一样，实际 {shapes}"
+
+    def test_cycle_declares_variation(self):
+        from patterns.lead import MOTIF_CYCLE
+
+        kinds = [kind for _, kind in MOTIF_CYCLE]
+        assert len(set(kinds)) >= 3, f"句法里要有真变奏，实际 {kinds}"
+        assert "cadence" in kinds, "四句里应该有一句收束"
+
+    def test_no_unit_is_a_single_note(self, make_project):
+        """每句内部得有起伏，否则就是"一个音按了四下"。"""
+        project = make_project(style="cinematic", sections={"chorus": 8})
+        path, _ = compose(str(project), "v1", report=False)[0]
+        for index, unit in enumerate(self._units(path), 1):
+            assert len({pitch for pitch, _ in unit}) >= 2, f"第 {index} 句只有一个音高：{unit}"
+
+    def test_lead_stays_in_style_range(self, make_project):
+        from core.styles import resolve
+
+        project = make_project(style="cinematic", sections={"chorus": 16})
+        path, _ = compose(str(project), "v1", report=False)[0]
+        low, high = resolve("cinematic")["lead"]["range"]
+        pitches = [n.pitch for n in _notes(path, "lead")]
+        assert min(pitches) >= low and max(pitches) <= high, \
+            f"旋律跑出风格音区 {low}~{high}：{min(pitches)}~{max(pitches)}"
+
+    def test_variant_rules(self):
+        from patterns.lead import _variant
+
+        phrase = [(0, 0.0, 1.0), (1, 2.0, 1.0)]
+        up = _variant(phrase, "tail_up", 4)
+        assert up[1][0] == 2 and up[0] == phrase[0], "上扬只该改最后一个音的音级"
+        down = _variant(phrase, "tail_down", 4)
+        assert down[1][0] == 0
+        cadence = _variant(phrase, "cadence", 4)
+        assert cadence[1][2] > phrase[1][2], "收束要拉长尾音"
+        assert cadence[1][0] == phrase[1][0], "收束不该改音高（会躺平）"
+        assert _variant(phrase, "plain", 4) == phrase
+
+
+class TestProjectIndex:
+    """projects/ 不进 git，所以靠 INDEX.md 让人（和别的工具）看见有哪些歌。"""
+
+    def test_written_beside_projects(self, make_project):
+        project = make_project(sections={"verse": 2})
+        compose(str(project), "v1", report=False)
+
+        index = project.parent / "INDEX.md"
+        assert index.exists(), "生成后应该在 projects 根目录写出 INDEX.md"
+        text = index.read_text(encoding="utf-8")
+        assert project.name in text
+        assert "v1" in text
+
+    def test_lists_latest_version(self, make_project):
+        project = make_project(sections={"verse": 2})
+        compose(str(project), "v1", report=False)
+        compose(str(project), "v2", report=False)
+
+        text = (project.parent / "INDEX.md").read_text(encoding="utf-8")
+        row = next(line for line in text.splitlines() if project.name in line)
+        assert "v2" in row, f"索引应该写最新版本，实际：{row}"
+        assert "v1" not in row
+
+
+class TestVersionDiff:
+    def test_no_diff_for_first_version(self, make_project, capsys):
+        project = make_project(sections={"verse": 2})
+        compose(str(project), "v1", report=False)
+        assert "[diff]" not in capsys.readouterr().out
+
+    def test_reports_change_between_versions(self, make_project, capsys):
+        import json
+
+        project = make_project(sections={"verse": 2})
+        compose(str(project), "v1", report=False)
+        capsys.readouterr()
+
+        cfg = json.loads((project / "config.json").read_text(encoding="utf-8"))
+        cfg["sections"] = {"verse": 4}          # 多两小节 → 音符数必然变
+        (project / "config.json").write_text(
+            json.dumps(cfg, ensure_ascii=False), encoding="utf-8"
+        )
+        compose(str(project), "v2", report=False)
+
+        out = capsys.readouterr().out
+        assert "[diff] 相比 v1" in out, out
+        assert "音" in out
+
+
+class TestBuildUp:
+    """段落内渐强：密度在段内爬升，而不是整段一个密度。"""
+
+    def _drum_counts(self, make_project, **overrides):
+        project = make_project(sections={"chorus": 8}, **overrides)
+        path, _ = compose(str(project), "v1", report=False)[0]
+        bar = 4 * 60 / 100
+        counts = [0] * 8
+        for note in _notes(path, "drums"):
+            counts[min(7, int(note.start / bar))] += 1
+        return counts
+
+    def test_up_gets_denser(self, make_project):
+        counts = self._drum_counts(
+            make_project, arrange={"chorus": {"build": "up", "fill": False, "crash": False}}
+        )
+        assert counts[0] < counts[-1], f"渐强应该越打越密，实际 {counts}"
+
+    def test_down_gets_sparser(self, make_project):
+        counts = self._drum_counts(
+            make_project, arrange={"chorus": {"build": "down", "fill": False, "crash": False}}
+        )
+        assert counts[0] > counts[-1], f"渐弱应该越打越稀，实际 {counts}"
+
+    def test_none_is_flat(self, make_project):
+        counts = self._drum_counts(
+            make_project, arrange={"chorus": {"build": None, "fill": False, "crash": False}}
+        )
+        assert len(set(counts)) == 1, f"不写 build 时每小节应该一样密，实际 {counts}"
+
+    def test_density_at_is_monotonic(self):
+        """直接测插值函数：段内进度单调 → 密度档单调。"""
+        from core.arrange import DRUM_LADDER
+        from core.context import Ctx
+
+        ctx = Ctx(bpm=100, start_bar=0, bars=8, progression=["Am"], chords={"Am": (0, 3, 7)},
+                  vel_scale=1.0, style="pop", style_spec={}, density="full", build="up")
+        levels = [ctx.density_at(i) for i in range(8)]
+        indexes = [DRUM_LADDER.index(v) for v in levels]
+        assert indexes == sorted(indexes), f"渐强不该回退：{levels}"
+        assert levels[0] != levels[-1]
+        assert levels[-1] == "full", "最后一小节要打到本段密度"
+
+
+class TestBassLock:
+    """bass 与底鼓咬合：kick 响的地方 bass 也要响（长音铺底型除外）。"""
+
+    def test_every_kick_has_a_bass_note(self, make_project):
+        """造一个 kick 落在 bass 节奏型之外的情况，咬合必须把它补上。
+
+        pop 默认的 kick 本来就压在 bass 的正拍上，那样测不出咬合有没有生效，
+        所以这里用 style_tweaks 往 1.25 拍塞一个 kick（bass 原本不弹那里）。
+        """
+        from core.theory import GM_DRUM
+
+        project = make_project(
+            style="pop",
+            sections={"verse": 2, "chorus": 2},
+            style_tweaks={"drums": {"full": [
+                ("kick", 0.0, 0.1, 96), ("kick", 1.25, 0.1, 80),
+                ("snare", 2.0, 0.1, 74), ("hat", 0.5, 0.05, 30),
+            ]}},
+        )
+        path, _ = compose(str(project), "v1", report=False)[0]
+        kicks = [round(n.start, 3) for n in _notes(path, "drums")
+                 if n.pitch == GM_DRUM["kick"]]
+        bass = {round(n.start, 3) for n in _notes(path, "bass")}
+
+        assert kicks, "这个配置应该有底鼓"
+        missing = [k for k in kicks if k not in bass]
+        assert not missing, f"这些底鼓落点上 bass 没咬住：{missing}"
+
+    def test_long_note_style_not_chopped(self, make_project):
+        """cinematic 是长音铺底，lock_kick 关掉，每小节仍只有一个长音。"""
+        project = make_project(style="cinematic", sections={"verse": 4})
+        path, _ = compose(str(project), "v1", report=False)[0]
+        bass = _notes(path, "bass")
+
+        assert len(bass) == 4, f"cinematic 每小节应只有一个长音，实际 {len(bass)} 个"
+        assert max(n.end - n.start for n in bass) > 1.5, "长音应该还在，没被切成短音"
+
+    def test_lock_does_not_duplicate_existing_hits(self, make_project):
+        """风格节奏型已经在 kick 上写过音的地方，不该再加一个重复音。"""
+        project = make_project(style="pop", sections={"verse": 2})
+        path, _ = compose(str(project), "v1", report=False)[0]
+        starts = [round(n.start, 3) for n in _notes(path, "bass")]
+        assert len(starts) == len(set(starts)), "同一拍位不该有两个 bass 音"
 
 
 class TestCounter:

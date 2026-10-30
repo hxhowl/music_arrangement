@@ -41,6 +41,8 @@ description: 用户对已生成版本有意见时（鼓太弱、太吵、想更�
 | 只有某一段想要另一种感觉 | `arrange.<段>.style` | 例如副歌 pop、结尾 playful |
 | 某一轨太吵 / 太弱 | `style_tweaks.<轨>.velocity` | chords / bass / pad / lead |
 | 鼓太密 / 太稀 | `arrange.<段>.drums` | `None` / `light` / `medium` / `full` |
+| 段内没有起伏 / 副歌推不上去 | `arrange.<段>.build` | `"up"` = 段内从低一档爬到本段密度；`"down"` = 渐弱；不写 = 整段一个密度 |
+| 旋律反复、像 loop | `style_tweaks.lead.phrases` | 句法固定为 A / A′ / B / A″（改尾巴、收束拉长）；换素材改 `phrases`，别只加一句 |
 | 鼓的花活不对 | `style_tweaks.drums.<档>` | 换掉某一档的谱型 |
 | 过门太频繁 | `style_tweaks.fill_every` | 每 N 小节一次 |
 | 不想要吊镲 | `arrange.<段>.crash` | `true` / `false` |

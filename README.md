@@ -32,6 +32,8 @@ music_arrangement/
 │   │   ├── config.py          # 默认参数 + 项目 config.json 加载与校验
 │   │   ├── theory.py          # 乐理：调性 -> 级数 -> 和弦，GM 映射
 │   │   ├── cues.py            # 音效时间点清单（采样类音效不做成 MIDI 轨）
+│   │   ├── index.py           # projects/INDEX.md 作品索引
+│   │   ├── diff.py            # 版本差异（这版比上版改了什么）
 │   │   └── report.py          # 产物体检
 │   └── patterns/              # 各音轨生成逻辑（数据驱动，不写死风格）
 │       ├── chords.py          # 和弦（带 voice leading）
@@ -177,7 +179,7 @@ bash tools/instruments.sh                                 # 看每个槽可选�
 | `style` | 整首歌的主基调，四选一：cinematic / pop / lofi / playful |
 | `sections` | 段落顺序与长度 |
 | `style_tweaks` | **只对这一首**微调风格参数，如 `{"bass": {"velocity": 78}}` |
-| `arrange` | **只对这一首**覆盖段落：`drums` / `vel` / `crash` / `fill` / `style` / `counter` / `counter_voice` |
+| `arrange` | **只对这一首**覆盖段落：`drums` / `vel` / `crash` / `fill` / `style` / `counter` / `counter_voice` / `build` |
 | `seed` | `0` = 完全确定；`>0` = 随机演奏（力度/时值/装饰音/短语起点） |
 | `harmonic_rhythm` | **每个和弦占几拍**：`4`=一小节一个，`2`=半小节一个，`8`=两小节一个。不写则用风格默认值 |
 | `swing` | 8 分音符摇摆 `0~0.8`：0=直拍，0.33≈三连音感，0.66≈shuffle |
@@ -191,11 +193,11 @@ bash tools/instruments.sh                                 # 看每个槽可选�
 | 轨 | 作用 | 设计要点 |
 |---|---|---|
 | `chords` | 和声节奏层 | 按 **voice leading** 排列：每个声部走最近的八度；跟随和声节奏分块 |
-| `bass` | 低音 | 统一折进一个八度窗口；根音取自**该拍位**的和弦，音尾切在换和弦处 |
-| `drums` | 鼓组 | 分档密度 + 过门 + 吊镲 |
+| `bass` | 低音 | 统一折进一个八度窗口；根音取自**该拍位**的和弦，音尾切在换和弦处；**跟底鼓咬合**（kick 响而 bass 空的地方补根音） |
+| `drums` | 鼓组 | 分档密度 + 过门 + 吊镲；**段内可渐强**（`arrange.<段>.build: "up"`，副歌默认开） |
 | `perc` | 装饰打击乐 | 沙锤/铃鼓/侧击，撑"律动感"但不占低频 |
 | `arp` | 琶音织体 | 和弦音上下行分解，填中高频空隙 |
-| `lead` | 主旋律 | 按和弦音级取音，**音区独占** |
+| `lead` | 主旋律 | 按和弦音级取音，**音区独占**；句法 **A / A′ / B / A″**（改尾巴、收束拉长），不再整段循环同一句 |
 | `counter` | 副旋律 | 只在**主旋律空档**出声，音区压在 lead 之下，像"回话"；`counter_voice: "high"` 可改成与主旋律同时响的**上方对位** |
 | `pad` | 铺底 | 有旋律时自动压低（`duck`），并让开 lead / counter 占用的音高 |
 
@@ -213,13 +215,13 @@ pip install -r requirements.txt pytest
 pytest
 ```
 
-135 项，约 1 秒跑完。覆盖：乐理推导、配置校验、风格/编排合并（含全局不被污染）、
+154 项，约 1 秒跑完。覆盖：乐理推导、配置校验、风格/编排合并（含全局不被污染）、
 生成确定性与多 take、段落换风格只影响该段、旋律无同音冲突、
 **半小节换和弦 / 两小节一个和弦 / swing 只推后半拍 / 副旋律不与主旋律重叠 /
 副旋律上方对位 / occupied 按绝对小节号隔离 / 覆盖旧版本会告警 / 音效清单 /
 乐器预设与覆盖优先级 / 换乐器时弹法跟着变 / 鼓组不被 perc 覆盖 /
 skill 在根目录且软链接可达 / references 与代码保持同步 / references 的入口没断 /
-文档不出现重复行**。
+底鼓与 bass 咬合 / 段落内渐强 / 旋律动机不循环 / 作品索引 / 版本差异 / 文档不出现重复行**。
 
 另有 `tests/test_docs.py` 专门查文档本身（`decisions.md` 的版本标题唯一且递增、
 文档里没有整块重复、反引号里的仓库路径真实存在、相对链接不失效、

@@ -1,0 +1,35 @@
+{
+  "bpm": 84,
+  "key": "F#m",
+  "style": "cinematic",
+  "style_tweaks": {},
+  "arrange": {
+    "chorus": {
+      "counter": true,
+      "counter_voice": "high"
+    }
+  },
+  "seed": 0,
+  "preset": "cinematic",
+  "instruments": {},
+  "swing": 0.0,
+  "harmonic_rhythm": null,
+  "cues": [],
+  "time_sig": [
+    4,
+    4
+  ],
+  "sections": {
+    "intro": 4,
+    "verse": 8,
+    "chorus": 8,
+    "outro": 4
+  },
+  "velocity_base": 80,
+  "progression": [
+    "i",
+    "VI",
+    "III",
+    "VII"
+  ]
+}

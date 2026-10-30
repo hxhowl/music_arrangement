@@ -14,6 +14,10 @@ from core.styles import COUNTER_VOICES, STYLES
 
 TRACK_KEYS = ("chords", "bass", "drums", "perc", "arp", "lead", "counter", "pad")
 DRUM_LEVELS = (None, "light", "medium", "full")
+# 渐强/渐弱在这条阶梯上插值：往上走到本段密度，或从本段密度往下走一档
+DRUM_LADDER = (None, "light", "medium", "full")
+# build: None=整段一个密度；"up"=段内从低一档爬到本段密度；"down"=反过来
+BUILD_MODES = (None, "up", "down")
 
 # drums: None=不出鼓 / "light" / "medium" / "full"
 # style: None=用整首歌的 style；也可写 "playful" 让这一段换风格
@@ -27,19 +31,20 @@ DRUM_LEVELS = (None, "light", "medium", "full")
 ARRANGE = {
     "intro":  dict(chords=True, bass=False, drums=None,     perc=False, arp=True,
                    lead=False, counter=False, pad=True,
-                   vel=0.70, crash=False, fill=False, style=None, counter_voice=None),
+                   vel=0.70, crash=False, fill=False, style=None, counter_voice=None, build=None),
     "verse":  dict(chords=True, bass=True,  drums="medium", perc=True,  arp=False,
                    lead=False, counter=True,  pad=True,
-                   vel=0.85, crash=False, fill=True,  style=None, counter_voice=None),
+                   vel=0.85, crash=False, fill=True,  style=None, counter_voice=None, build=None),
     "chorus": dict(chords=True, bass=True,  drums="full",   perc=True,  arp=True,
                    lead=True,  counter=False, pad=True,
-                   vel=1.00, crash=True,  fill=True,  style=None, counter_voice=None),
+                   vel=1.00, crash=True,  fill=True,  style=None, counter_voice=None,
+                   build="up"),
     "bridge": dict(chords=True, bass=True,  drums="light",  perc=False, arp=True,
                    lead=False, counter=True,  pad=True,
-                   vel=0.80, crash=False, fill=True,  style=None, counter_voice=None),
+                   vel=0.80, crash=False, fill=True,  style=None, counter_voice=None, build=None),
     "outro":  dict(chords=True, bass=False, drums=None,     perc=False, arp=False,
                    lead=False, counter=False, pad=True,
-                   vel=0.65, crash=False, fill=False, style=None, counter_voice=None),
+                   vel=0.65, crash=False, fill=False, style=None, counter_voice=None, build=None),
 }
 
 
@@ -90,6 +95,11 @@ def get(section: str, overrides: dict = None) -> dict:
         raise ValueError(
             f"段落 {section!r} 的 counter_voice={arr['counter_voice']!r} 不合法，"
             f"只能是 {' / '.join(COUNTER_VOICES)}（或留空表示用风格里的设置）"
+        )
+    if arr["build"] not in BUILD_MODES:
+        raise ValueError(
+            f"段落 {section!r} 的 build={arr['build']!r} 不合法，"
+            f"只能是 null / \"up\" / \"down\"（up = 段内渐强，down = 渐弱）"
         )
     try:
         arr["vel"] = float(arr["vel"])

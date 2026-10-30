@@ -16,6 +16,9 @@ from core.arrange import TRACK_KEYS, get as get_arrange
 from core.config import load_config
 from core.context import Ctx
 from core.cues import write_cues
+from core.diff import describe as describe_changes
+from core.diff import previous_version
+from core.index import write as write_index
 from core.instruments import describe as describe_instruments
 from core.instruments import merge_tweaks, plan as plan_instruments, tweaks_of
 from core.report import check
@@ -172,14 +175,16 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
             beats_per_bar=num,
             swing=swing,
             counter_voice=arr.get("counter_voice"),
+            build=arr.get("build"),
         )
 
         if arr["chords"]:
             build_chords(insts["chords"], ctx)
-        if arr["bass"]:
-            build_bass(insts["bass"], ctx)
+        # drums 先于 bass：bass 要读底鼓落点来咬合（见 patterns/bass.py）
         if arr["drums"]:
             build_drums(insts["drums"], ctx)
+        if arr["bass"]:
+            build_bass(insts["bass"], ctx)
         # lead 先写：arp 和 pad 都要读它占用的音高来避让
         if arr["lead"]:
             build_lead(insts["lead"], ctx)
@@ -207,6 +212,16 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
     # 显式指定版本号时会覆盖旧版 —— 这是唯一会丢历史的路径，所以要出声
     if os.path.exists(out_file):
         print(f"[提示] 覆盖已存在的 {version}（想保留旧版就换一个版本号）")
+
+    # 这一版和上一版比变了什么（体检只说"有没有错"，不说"改了什么"）
+    prev = previous_version(out_dir, project_name, version)
+    if prev:
+        changes = describe_changes(
+            os.path.join(out_dir, f"{project_name}-{prev}.mid"), pm.instruments
+        )
+        detail = "；".join(changes[:6]) if changes else "音符层面没有变化（只有音色或参数动了）"
+        print(f"[diff] 相比 {prev}：{detail}")
+
     pm.write(out_file)
 
     # 参数快照：保证这一版永久可复现（含实际使用的 seed）
@@ -238,6 +253,11 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
     ok = True
     if report:
         ok = check(out_file, saved, progression=progression)
+
+    # 作品索引：projects/ 下的歌不进 git，换窗口就看不出有哪些，所以每次重写一张表
+    index_path = write_index(os.path.dirname(os.path.abspath(project_dir)))
+    if index_path:
+        print(f"作品索引: {index_path}")
     return out_file, ok
 
 

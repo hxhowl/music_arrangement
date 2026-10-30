@@ -3,6 +3,14 @@ import pretty_midi
 from core.theory import chord_root_pitch, scale_velocity
 
 
+def _bar_of(ctx, seconds: float, start_bar: int) -> int:
+    """某个绝对时间点落在段内第几小节（夹在本段范围内）。"""
+    if not ctx.bar_len:
+        return start_bar
+    index = int(((seconds - 1e-6) - ctx.bar_time(0)) // ctx.bar_len)
+    return max(start_bar, min(ctx.bars - 1, index))
+
+
 def build(pad_inst, ctx):
     """铺底长音。
 
@@ -25,12 +33,20 @@ def build(pad_inst, ctx):
             start = ctx.at(i, offset)
             end = start + span_beats * beat * hold
 
-            pitches = [root + semi for semi in spec["intervals"]]
-            kept = [p for p in pitches if not ctx.is_occupied(i, p)]
+            # 这个 pad 音会盖住哪几小节：和弦跨两小节时它只查起始小节，
+            # 第二小节里的旋律就撞上了（体检会报"同音高同时发声"）
+            last_bar = _bar_of(ctx, end, i)
 
-            # 全被占了就留最低的那个，避免这一段彻底没有和声
-            if not kept and pitches:
-                kept = [min(pitches)]
+            pitches = [root + semi for semi in spec["intervals"]]
+            kept = [
+                p for p in pitches
+                if not any(ctx.is_occupied(b, p) for b in range(i, last_bar + 1))
+            ]
+
+            # 全被占了就这一拍不出 pad —— 那些音高主旋律已经在响了，
+            # 和声没有丢；硬塞一个反而变成同度叠置（体检会报"同音高同时发声"）
+            if not kept:
+                continue
 
             for pitch in kept:
                 pad_inst.notes.append(

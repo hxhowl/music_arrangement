@@ -11,6 +11,7 @@
   chords : octave / hold(占小节比例) / velocity / range=(最低, 最高) / seventh(是否用七和弦)
            beats=每个和弦占几拍（4=一小节一个，2=半小节一个，8=两小节一个）
   bass   : octave / low / high / velocity / rhythm=[(起始拍, 时长拍, accent, 半音偏移)]
+           lock_kick=True 时在底鼓落点上补根音（长音铺底型如 cinematic 应关掉）
   drums  : {密度档: [(GM键名, 起始拍, 时长拍, 基准力度)]}
   lead   : target(中心音区) / range=(最低音, 最高音) / breath_every(每 N 小节呼吸，0=不呼吸)
            breath=[(音级, 起始拍, 时长拍)] 呼吸小节用的长音
@@ -56,7 +57,7 @@ STYLES = {
     "cinematic": dict(
         chords=dict(octave=3, hold=0.99, velocity=46, range=(48, 67), beats=8),
         bass=dict(octave=1, low=33, high=44, velocity=74,
-                  rhythm=[(0.0, 3.9, 1.0, 0)]),
+                  rhythm=[(0.0, 3.9, 1.0, 0)], lock_kick=False),
         drums={
             "light":  [("kick", 0.0, 0.25, 52)],
             "medium": [("kick", 0.0, 0.25, 72), ("kick", 1.75, 0.2, 44)],
@@ -64,7 +65,8 @@ STYLES = {
                        ("snare", 2.0, 0.22, 66), ("tom_low", 3.75, 0.3, 58)],
         },
         lead=dict(target=69, range=(60, 83), velocity=84, breath_every=0, breath=BREATH_STD,
-                  phrases=[[(0, 0.0, 1.9), (2, 2.0, 1.9)]]),
+                  phrases=[[(0, 0.0, 1.9), (2, 2.0, 1.9)],
+                           [(0, 0.0, 1.9), (3, 2.0, 1.9)]]),   # 第二句尾巴跳一个八度
         pad=dict(octave=3, intervals=(12, 19, 24), velocity=42, hold=1.0, duck=0.72),
         fill=FILL_STD, fill_every=4,
         ghost=dict(chance=0.0, velocity=28),
@@ -81,7 +83,7 @@ STYLES = {
         bass=dict(octave=1, low=33, high=44, velocity=88,
                   rhythm=[(0.0, 0.45, 1.0, 0), (1.0, 0.45, 0.85, 0),
                           (2.0, 0.45, 1.0, 0), (2.5, 0.4, 0.75, 7),
-                          (3.0, 0.45, 0.85, 0)]),
+                          (3.0, 0.45, 0.85, 0)], lock_kick=True),
         drums={
             "light":  [("kick", 0.0, 0.1, 72)] + _eighths("hat", 34),
             "medium": [("kick", 0.0, 0.1, 88), ("snare", 2.0, 0.1, 74)] + _eighths("hat", 40),
@@ -109,7 +111,7 @@ STYLES = {
         chords=dict(octave=3, hold=0.72, velocity=52, range=(48, 67), seventh=True, beats=2),
         bass=dict(octave=1, low=33, high=44, velocity=80,
                   rhythm=[(0.0, 0.7, 1.0, 0), (0.75, 0.4, 0.6, 0),
-                          (1.5, 0.5, 0.85, 0), (2.5, 0.6, 0.9, 7)]),
+                          (1.5, 0.5, 0.85, 0), (2.5, 0.6, 0.9, 7)], lock_kick=True),
         drums={
             "light":  [("kick", 0.0, 0.1, 54)] + _quarters("hat", 26),
             "medium": [("kick", 0.0, 0.12, 78), ("snare", 2.0, 0.12, 58)]
@@ -139,7 +141,7 @@ STYLES = {
         # 窗口太高会把贝斯顶到 G3，和 chords 轨撞在一起
         bass=dict(octave=1, low=26, high=38, velocity=92,
                   rhythm=[(0.0, 0.35, 1.0, 0), (0.5, 0.35, 0.55, 12),
-                          (2.0, 0.35, 1.0, 0), (2.75, 0.5, 0.7, 7)]),
+                          (2.0, 0.35, 1.0, 0), (2.75, 0.5, 0.7, 7)], lock_kick=True),
         drums={
             "light":  [("kick", 0.0, 0.1, 70), ("hat", 2.0, 0.05, 48)],
             "medium": [("kick", 0.0, 0.1, 92), ("snare", 2.5, 0.1, 70)]
@@ -227,6 +229,8 @@ def _check_shapes(spec: dict) -> None:
     for item in bass["rhythm"]:
         if len(item) != 4:
             raise ValueError(f"bass.rhythm 每项应为 (起始拍, 时长拍, accent, 半音偏移)，收到 {item!r}")
+    if not isinstance(bass.get("lock_kick", False), bool):
+        raise ValueError(f"bass.lock_kick={bass.get('lock_kick')!r} 必须是 true/false")
 
     for level, events in spec["drums"].items():
         for item in events:
