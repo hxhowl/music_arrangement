@@ -204,6 +204,9 @@ def _render(project_dir: str, cfg: dict, version: str, seed: int, report: bool):
     os.makedirs(out_dir, exist_ok=True)
     project_name = os.path.basename(os.path.normpath(project_dir))
     out_file = os.path.join(out_dir, f"{project_name}-{version}.mid")
+    # 显式指定版本号时会覆盖旧版 —— 这是唯一会丢历史的路径，所以要出声
+    if os.path.exists(out_file):
+        print(f"[提示] 覆盖已存在的 {version}（想保留旧版就换一个版本号）")
     pm.write(out_file)
 
     # 参数快照：保证这一版永久可复现（含实际使用的 seed）

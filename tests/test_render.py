@@ -71,6 +71,20 @@ class TestDeterminism:
         blobs = {open(p, "rb").read() for p, _ in results}
         assert len(blobs) == 3
 
+    def test_warns_when_overwriting_a_version(self, make_project, capsys):
+        """显式指定已有版本号会覆盖旧版 —— 这是唯一会丢历史的路径，必须出声。"""
+        project = make_project(seed=0)
+        compose(str(project), "v1", report=False)
+        capsys.readouterr()
+        compose(str(project), "v1", report=False)
+        assert "覆盖已存在" in capsys.readouterr().out
+
+    def test_no_warning_for_new_version(self, make_project, capsys):
+        project = make_project(seed=0)
+        compose(str(project), "v1", report=False)
+        compose(str(project), "v2", report=False)
+        assert "覆盖已存在" not in capsys.readouterr().out
+
 
 class TestSectionStyle:
     def test_only_overridden_section_changes(self, make_project):

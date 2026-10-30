@@ -39,6 +39,14 @@ bounces/
 .workbuddy/sessions/
 .workbuddy/*.db
 
+# ===== 歌曲项目 =====
+# 每首歌（brief / config / decisions / music/output）都是产物，不进仓库：
+# 它们是"这一首的输出"，不是产线的代码，提交只会让历史里堆满二进制与临时参数。
+# 只留 demo 作为示例，`!` 必须写在 `projects/*` 之后才生效。
+projects/*
+!projects/.gitkeep
+!projects/demo/
+
 # ===== 杂项 =====
 *.bak
 *.tmp

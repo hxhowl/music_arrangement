@@ -26,6 +26,8 @@ AI 代码编曲工坊：大模型用 Python 生成多轨 MIDI → Logic Pro 预�
 2. **模型只写代码**：不手动改 MIDI 二进制；改曲子 = 改代码/配置后重新生成。
 3. **不覆盖历史**：`tools/compose.sh` 默认版本号自增，每版自动写 `<name>-vN.config.json` 快照。
    `decisions.md` 记录每次改动的听感预期。
+   **`projects/` 下除 `projects/demo/` 外都被 `.gitignore` 忽略** —— 每首歌是产物，不进仓库；
+   所以真实歌曲的变更史只有 `decisions.md` 一份，改完必须记。
 4. **三层职责不许混**：`music/core/arrange.py` 管"哪段出声、多密、多响、
    这一段用哪套风格"；`music/core/styles.py` 管"这一档具体怎么演奏"；
    `config.json` 管"这首歌"。前两层是出厂默认，项目通过 `arrange` / `style_tweaks`
