@@ -2,9 +2,6 @@ import pretty_midi
 
 from core.theory import chord_root_pitch, scale_velocity
 
-# 旋律最多按「和弦内第 4 个音」取音（根-三-五-八），够用且不会跑出音区
-TONE_COUNT = 4
-
 # 句法：每 2 小节一句，四句一循环 —— A、A'（尾巴上扬）、B（另一半素材）、
 # A''（收束到根音）。只写 "A A B A" 会听起来像 loop，加变奏才像人写的。
 # 第二项是"用第几句素材"：只有一句的风格，B 会退化成 A 的另一种变奏。

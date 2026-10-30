@@ -15,7 +15,9 @@
   drums  : {密度档: [(GM键名, 起始拍, 时长拍, 基准力度)]}
   lead   : target(中心音区) / range=(最低音, 最高音) / breath_every(每 N 小节呼吸，0=不呼吸)
            breath=[(音级, 起始拍, 时长拍)] 呼吸小节用的长音
-           phrases=[[(音级, 起始拍, 时长拍)]]，音级是"和弦内第几个音"
+           phrases=[[(音级, 起始拍, 时长拍)]]，音级是"和弦内第几个音"（0=根音，往上数）
+           这同一份素材会被 lead.py 按 A / A' / B / A'' 展开：第 2 句尾音往上挪一级、
+           第 4 句把尾音拉长。想换旋律是换 phrases，不是指望"多加一句就不重复"
   pad    : octave / intervals / velocity / hold / duck(有旋律时压低的比例)
   fill   : [(GM键名, 起始拍偏移)] 过门音符，铺满第 4 拍
   fill_every : 每 N 小节加一次过门

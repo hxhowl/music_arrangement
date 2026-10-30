@@ -395,6 +395,14 @@ class TestBuildUp:
         assert levels[0] != levels[-1]
         assert levels[-1] == "full", "最后一小节要打到本段密度"
 
+    def test_single_bar_section_gets_target_density(self):
+        """只有一小节的段落没有"渐变"可言，必须直接给本段密度。"""
+        from core.context import Ctx
+
+        ctx = Ctx(bpm=100, start_bar=0, bars=1, progression=["Am"], chords={"Am": (0, 3, 7)},
+                  vel_scale=1.0, style="pop", style_spec={}, density="full", build="up")
+        assert ctx.density_at(0) == "full"
+
 
 class TestBassLock:
     """bass 与底鼓咬合：kick 响的地方 bass 也要响（长音铺底型除外）。"""

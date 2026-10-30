@@ -13,7 +13,7 @@ description: 按项目 config.json 与风格库生成多轨 MIDI，自动带产�
 2. 需要动参数就改 `config.json`，**不要改 `music/core/config.py` 的默认值**
 3. `bash tools/compose.sh projects/<dir>`
 4. 体检不通过 → 先修，别当成完成
-5. 动过 `music/` 下任何文件，跑 `pytest`（75 项，<1 秒）
+5. 动过 `music/` 下任何文件，跑 `pytest`（154 项，<2 秒）
 6. 输出：mid 路径 + 风格/调性/和弦/和声节奏 + 体检结论 + 音效清单路径 + 一条 Logic 导入提示
 
 ## 产物约定
@@ -22,6 +22,8 @@ description: 按项目 config.json 与风格库生成多轨 MIDI，自动带产�
 - 同时写 `<project>-vN.cues.md` 音效时间点（riser / impact 放第几小节）。
   **不要把这些音效做成 MIDI 轨**：它们是采样，MIDI 只能触发合成器音色
 - 版本号缺省自增，不覆盖旧版；要指定就 `bash tools/compose.sh <dir> v5`
+- 同时重写 `projects/INDEX.md`（所有作品的风格/调/最新版本），
+  并在终端打印 `[diff] 相比 vN-1：…` —— 这行是"这版改了什么"的唯一来源，回话时带上
 - 多版本：`bash tools/compose.sh <dir> v5 --takes 3` → v5/v6/v7，
   seed 从 config 的 `seed` 起递增（默认 0 → 1/2/3）
 - 换演奏：`bash tools/compose.sh <dir> --seed 9`
@@ -45,9 +47,10 @@ description: 按项目 config.json 与风格库生成多轨 MIDI，自动带产�
 - MIDI：Format 1 / PPQ 960 / 鼓与打击乐 `is_drum=True` 落 channel 10 /
   没有音符的轨不写进文件（避免 Logic 出现空白轨）
 - 轨：chords / bass / drums / perc / arp / lead / counter / pad，共 8 条
-- **构建顺序在 compose 里定死**：chords → bass → drums → lead → perc → arp →
-  counter → pad。lead 先写（counter/arp/pad 要读它的空档与占用音高），
-  pad 最后写（避让所有声部）。不要调换
+- **构建顺序在 compose 里定死**：chords → drums → bass → lead → perc → arp →
+  counter → pad。**drums 必须在 bass 之前**（bass 要读底鼓落点来咬合，见
+  `ctx.register_kick` / `bass.lock_kick`）；lead 在 counter/arp/pad 之前
+  （它们要读旋律的空档与占用音高）；pad 最后写（避让所有声部）。不要调换
 - **拍位一律用 `ctx.at(i, 拍)`**，不要写 `bar_time(i) + 拍 * beat` —— 后者不跟 swing
 - **同一小节内的和声用 `ctx.chord_spans(i)`**（半小节换和弦），
   单个拍位查和弦用 `ctx.chord_at_beat(i, 拍)`

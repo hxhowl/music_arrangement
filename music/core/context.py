@@ -188,6 +188,9 @@ class Ctx:
         """
         if not self.build or not self.density:
             return self.density
+        if self.bars <= 1:
+            # 只有一小节时"渐变"没有意义，直接给本段密度（否则会永远停在下限）
+            return self.density
 
         # 延迟导入：context 被所有 pattern 依赖，别在 import 期把 arrange 拉进来
         from core.arrange import DRUM_LADDER
